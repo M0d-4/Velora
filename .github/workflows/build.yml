@@ -21,15 +21,13 @@ on:
           - debug
           - release
 
-# Cancel in-progress runs on the same branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   JAVA_VERSION: '17'
-  ANDROID_COMPILE_SDK: '34'
-  ANDROID_BUILD_TOOLS: '34.0.0'
+  GRADLE_VERSION: '8.7'
   GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true'
 
 jobs:
@@ -53,13 +51,17 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
 
-      - name: Setup Gradle
+      - name: Setup Gradle ${{ env.GRADLE_VERSION }}
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-home-cache-cleanup: true
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          # Disable the post-job cache cleanup that triggers the Gradle 9.x bug
+          gradle-home-cache-cleanup: false
 
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+      - name: Bootstrap Gradle wrapper jar
+        run: |
+          gradle wrapper --gradle-version ${{ env.GRADLE_VERSION }}
+          chmod +x ./gradlew
 
       - name: Run lint
         run: ./gradlew lintDebug --stacktrace
@@ -102,13 +104,16 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
 
-      - name: Setup Gradle
+      - name: Setup Gradle ${{ env.GRADLE_VERSION }}
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-home-cache-cleanup: true
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          gradle-home-cache-cleanup: false
 
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+      - name: Bootstrap Gradle wrapper jar
+        run: |
+          gradle wrapper --gradle-version ${{ env.GRADLE_VERSION }}
+          chmod +x ./gradlew
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
@@ -134,7 +139,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: lint-and-test
-    # Only run on tags or main branch pushes (not PRs)
     if: |
       github.event_name == 'push' &&
       (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
@@ -149,15 +153,17 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
 
-      - name: Setup Gradle
+      - name: Setup Gradle ${{ env.GRADLE_VERSION }}
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-home-cache-cleanup: true
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          gradle-home-cache-cleanup: false
 
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+      - name: Bootstrap Gradle wrapper jar
+        run: |
+          gradle wrapper --gradle-version ${{ env.GRADLE_VERSION }}
+          chmod +x ./gradlew
 
-      # Decode the base64-encoded keystore stored as a secret
       - name: Decode keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -166,13 +172,12 @@ jobs:
 
       - name: Build release APK
         env:
-          KEYSTORE_PATH: velora-release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=$KEYSTORE_PATH \
+            -Pandroid.injected.signing.store.file=velora-release.jks \
             -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
             -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
             -Pandroid.injected.signing.key.password=$KEY_PASSWORD \
@@ -197,7 +202,6 @@ jobs:
           path: artifacts/Velora-v*-release.apk
           retention-days: 90
 
-      # Clean up keystore from runner
       - name: Clean up keystore
         if: always()
         run: rm -f app/velora-release.jks
@@ -222,13 +226,16 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
 
-      - name: Setup Gradle
+      - name: Setup Gradle ${{ env.GRADLE_VERSION }}
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-home-cache-cleanup: true
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          gradle-home-cache-cleanup: false
 
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+      - name: Bootstrap Gradle wrapper jar
+        run: |
+          gradle wrapper --gradle-version ${{ env.GRADLE_VERSION }}
+          chmod +x ./gradlew
 
       - name: Decode keystore
         env:
@@ -238,13 +245,12 @@ jobs:
 
       - name: Build release AAB
         env:
-          KEYSTORE_PATH: velora-release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           ./gradlew bundleRelease \
-            -Pandroid.injected.signing.store.file=$KEYSTORE_PATH \
+            -Pandroid.injected.signing.store.file=velora-release.jks \
             -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
             -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
             -Pandroid.injected.signing.key.password=$KEY_PASSWORD \
@@ -331,10 +337,9 @@ jobs:
             ---
 
             ### Installation
-            Download the APK below and install it on your Android device (Android 8.0+).
+            Download the APK below and install on Android 8.0+.
             Enable *Install from unknown sources* in Settings if prompted.
 
-            ### Files
             | File | Description |
             |------|-------------|
             | `Velora-*-release.apk` | Install directly on Android 8+ |
@@ -345,4 +350,3 @@ jobs:
             release-artifacts/*.aab
           draft: false
           prerelease: ${{ contains(steps.tag.outputs.version, '-beta') || contains(steps.tag.outputs.version, '-alpha') || contains(steps.tag.outputs.version, '-rc') }}
-          generate_release_notes: false
