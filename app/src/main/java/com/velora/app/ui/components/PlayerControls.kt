@@ -1,10 +1,10 @@
 package com.velora.app.ui.components
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -38,14 +38,14 @@ fun PlayerControls(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Rewind button
+            // Rewind — no number label on icon
             SkipButton(
                 icon = Icons.Rounded.Replay,
-                label = "-${skipSeconds}s",
+                contentDescription = "Skip backward ${skipSeconds}s",
                 onClick = onSkipBackward
             )
 
-            // Play / Pause — large liquid glass pill
+            // Play / Pause
             LiquidGlassSurface(
                 cornerRadius = 999.dp,
                 alpha = 0.25f,
@@ -73,16 +73,15 @@ fun PlayerControls(
                 }
             }
 
-            // Forward button
+            // Forward — no number label on icon
             SkipButton(
                 icon = Icons.Rounded.Forward10,
-                label = "+${skipSeconds}s",
-                onClick = onSkipForward,
-                mirror = true
+                contentDescription = "Skip forward ${skipSeconds}s",
+                onClick = onSkipForward
             )
         }
 
-        // Skip seconds toggle
+        // Skip seconds toggle — bigger pill
         SkipSecondsPill(
             current = skipSeconds,
             onChange = onSkipSecondsChange
@@ -93,9 +92,8 @@ fun PlayerControls(
 @Composable
 private fun SkipButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    onClick: () -> Unit,
-    mirror: Boolean = false
+    contentDescription: String,
+    onClick: () -> Unit
 ) {
     LiquidGlassSurface(
         cornerRadius = 20.dp,
@@ -108,7 +106,7 @@ private fun SkipButton(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = label,
+                contentDescription = contentDescription,
                 modifier = Modifier.size(28.dp),
                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
             )
@@ -121,14 +119,16 @@ private fun SkipSecondsPill(
     current: Int,
     onChange: (Int) -> Unit
 ) {
+    // Bigger outer pill
     LiquidGlassSurface(
         cornerRadius = 999.dp,
-        alpha = 0.12f,
+        alpha = 0.18f,
         modifier = Modifier.wrapContentWidth()
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(0.dp)
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(0.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             listOf(5, 10).forEach { secs ->
                 val isSelected = current == secs
@@ -137,30 +137,23 @@ private fun SkipSecondsPill(
                         .clip(RoundedCornerShape(999.dp))
                         .then(
                             if (isSelected)
-                                Modifier.run {
-                                    // highlight chip
-                                    this
-                                }
+                                Modifier.background(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
+                                    RoundedCornerShape(999.dp)
+                                )
                             else Modifier
                         )
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
                         ) { onChange(secs) }
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                        // Bigger tap targets
+                        .padding(horizontal = 20.dp, vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (isSelected) {
-                        // Inner pill highlight
-                        LiquidGlassSurface(
-                            cornerRadius = 999.dp,
-                            alpha = 0.4f,
-                            modifier = Modifier.matchParentSize()
-                        ) {}
-                    }
                     Text(
                         text = "${secs}s skip",
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (isSelected)
                             MaterialTheme.colorScheme.primary
