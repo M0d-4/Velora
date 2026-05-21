@@ -26,6 +26,7 @@ object MediaRepository {
             MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM,
+            MediaStore.Audio.Media.ALBUM_ID,
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.MIME_TYPE,
             MediaStore.Audio.Media.DATA
@@ -33,29 +34,38 @@ object MediaRepository {
 
         val items = mutableListOf<MediaItem>()
         context.contentResolver.query(collection, projection, null, null, null)?.use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-            val durCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-            val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
-            val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+            val idCol      = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val titleCol   = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+            val artistCol  = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+            val albumCol   = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+            val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+            val durCol     = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+            val mimeCol    = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+            val dataCol    = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
 
             while (cursor.moveToNext()) {
-                val id = cursor.getLong(idCol)
-                val uri = ContentUris.withAppendedId(collection, id)
+                val id       = cursor.getLong(idCol)
+                val albumId  = cursor.getLong(albumIdCol)
+                val uri      = ContentUris.withAppendedId(collection, id)
                 val dataPath = cursor.getString(dataCol)
-                val lrcFile = LyricsParser.findLrcForMedia(dataPath)
+                val lyricsFile = LyricsParser.findLyricsForMedia(dataPath)
+
+                // Album art URI via MediaStore
+                val albumArtUri = ContentUris.withAppendedId(
+                    Uri.parse("content://media/external/audio/albumart"), albumId
+                )
+
                 items.add(
                     MediaItem(
-                        id = id,
-                        uri = uri,
-                        title = cursor.getString(titleCol) ?: "Unknown",
-                        artist = cursor.getString(artistCol) ?: "Unknown",
-                        album = cursor.getString(albumCol) ?: "Unknown",
-                        duration = cursor.getLong(durCol),
-                        mimeType = cursor.getString(mimeCol) ?: "audio/*",
-                        lyricsPath = lrcFile?.absolutePath
+                        id          = id,
+                        uri         = uri,
+                        title       = cursor.getString(titleCol) ?: "Unknown",
+                        artist      = cursor.getString(artistCol) ?: "Unknown",
+                        album       = cursor.getString(albumCol) ?: "Unknown",
+                        duration    = cursor.getLong(durCol),
+                        mimeType    = cursor.getString(mimeCol) ?: "audio/*",
+                        albumArtUri = albumArtUri,
+                        lyricsPath  = lyricsFile?.absolutePath
                     )
                 )
             }
@@ -78,27 +88,27 @@ object MediaRepository {
 
         val items = mutableListOf<MediaItem>()
         context.contentResolver.query(collection, projection, null, null, null)?.use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+            val idCol    = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
             val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.TITLE)
-            val durCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
-            val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.MIME_TYPE)
-            val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
+            val durCol   = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+            val mimeCol  = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.MIME_TYPE)
+            val dataCol  = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
 
             while (cursor.moveToNext()) {
-                val id = cursor.getLong(idCol)
-                val uri = ContentUris.withAppendedId(collection, id)
+                val id       = cursor.getLong(idCol)
+                val uri      = ContentUris.withAppendedId(collection, id)
                 val dataPath = cursor.getString(dataCol)
-                val lrcFile = LyricsParser.findLrcForMedia(dataPath)
+                val lyricsFile = LyricsParser.findLyricsForMedia(dataPath)
                 val thumbUri = Uri.parse("content://media/external/video/media/$id/thumbnail")
                 items.add(
                     MediaItem(
-                        id = id,
-                        uri = uri,
-                        title = cursor.getString(titleCol) ?: "Unknown",
-                        duration = cursor.getLong(durCol),
-                        mimeType = cursor.getString(mimeCol) ?: "video/*",
+                        id           = id,
+                        uri          = uri,
+                        title        = cursor.getString(titleCol) ?: "Unknown",
+                        duration     = cursor.getLong(durCol),
+                        mimeType     = cursor.getString(mimeCol) ?: "video/*",
                         thumbnailUri = thumbUri,
-                        lyricsPath = lrcFile?.absolutePath
+                        lyricsPath   = lyricsFile?.absolutePath
                     )
                 )
             }
