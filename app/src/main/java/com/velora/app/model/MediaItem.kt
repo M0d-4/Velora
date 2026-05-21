@@ -8,16 +8,20 @@ data class MediaItem(
     val title: String,
     val artist: String = "Unknown Artist",
     val album: String = "Unknown Album",
-    val duration: Long = 0L,          // ms
+    val duration: Long = 0L,
     val mimeType: String = "",
     val thumbnailUri: Uri? = null,
-    val lyricsPath: String? = null    // path to .lrc file if found
+    val albumArtUri: Uri? = null,      // embedded cover art for audio files
+    val lyricsPath: String? = null     // path to .lrc/.srt file if found
 ) {
     val isVideo: Boolean get() = mimeType.startsWith("video")
     val isAudio: Boolean get() = mimeType.startsWith("audio")
+
+    /** Best available art — album art for audio, thumbnail for video */
+    val artUri: Uri? get() = albumArtUri ?: thumbnailUri
 }
 
-/** Parsed LRC lyric line */
+/** Parsed lyric line (works for both LRC and SRT) */
 data class LyricLine(
     val timeMs: Long,
     val text: String
