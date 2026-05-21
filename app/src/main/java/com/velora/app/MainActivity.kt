@@ -62,13 +62,11 @@ fun VeloraApp(viewModel: PlayerViewModel) {
     else
         arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
 
+    val context = androidx.compose.ui.platform.LocalContext.current
     var hasPermission by remember {
         mutableStateOf(
             permissions.all {
-                ContextCompat.checkSelfPermission(
-                    androidx.compose.ui.platform.LocalContext.current,
-                    it
-                ) == PackageManager.PERMISSION_GRANTED
+                ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
             }
         )
     }
