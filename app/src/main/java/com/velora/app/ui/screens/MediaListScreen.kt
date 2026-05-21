@@ -35,6 +35,7 @@ fun MediaListScreen(
     filteredItems: List<MediaItem>,
     onItemClick: (MediaItem) -> Unit,
     onFilterChange: (FilterTab) -> Unit,
+    onImportZip: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -53,12 +54,29 @@ fun MediaListScreen(
                 .padding(top = 56.dp, bottom = 8.dp, start = 24.dp, end = 24.dp)
         ) {
             Column {
-                Text(
-                    "Library",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Library",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    // ZIP import button
+                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                        IconButton(onClick = onImportZip) {
+                            Icon(
+                                Icons.Rounded.FolderZip,
+                                contentDescription = "Import ZIP",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
                 Spacer(Modifier.height(12.dp))
 
                 // Filter chips
@@ -176,7 +194,7 @@ private fun MediaRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Thumbnail
+            // Thumbnail / Album art
             Box(
                 modifier = Modifier
                     .size(52.dp)
@@ -184,9 +202,10 @@ private fun MediaRow(
                     .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
                 contentAlignment = Alignment.Center
             ) {
-                if (item.thumbnailUri != null) {
+                val art = item.artUri
+                if (art != null) {
                     AsyncImage(
-                        model = item.thumbnailUri,
+                        model = art,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp))
