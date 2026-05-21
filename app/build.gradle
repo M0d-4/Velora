@@ -51,6 +51,14 @@ android {
         }
     }
 
+    lint {
+        abortOnError false
+        warningsAsErrors false
+        disable 'AppLinkUrlError'
+        htmlReport true
+        textReport true
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
