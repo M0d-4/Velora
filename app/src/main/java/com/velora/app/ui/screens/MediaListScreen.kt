@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -208,7 +209,7 @@ private fun MediaRow(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Rounded.VolumeUp, null,
+                            Icons.AutoMirrored.Rounded.VolumeUp, null,
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )
