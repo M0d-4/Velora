@@ -1,9 +1,7 @@
 package com.velora.app.ui.screens
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -32,13 +30,14 @@ fun AudioPlayerScreen(
     onSkipBackward: () -> Unit,
     onSeek: (Long) -> Unit,
     onSkipSecondsChange: (Int) -> Unit,
+    onImportLyrics: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val item = state.currentItem ?: return
     val hasLyrics = state.lyrics.isNotEmpty()
 
     Box(modifier = modifier.fillMaxSize()) {
-        // Blurred artwork background tint
+        // Background tint
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -58,24 +57,31 @@ fun AudioPlayerScreen(
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(24.dp))
+            // Extra top space to push art a bit lower
+            Spacer(Modifier.height(40.dp))
 
-            // Album art
+            // Album art — shows cover art if exists, else music note icon
             LiquidGlassSurface(
                 cornerRadius = 28.dp,
                 alpha = 0.2f,
-                modifier = Modifier
-                    .size(220.dp)
+                modifier = Modifier.size(220.dp)
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    if (item.thumbnailUri != null) {
+                    val artUri = item.artUri
+                    if (artUri != null) {
                         AsyncImage(
-                            model = item.thumbnailUri,
-                            contentDescription = null,
+                            model = artUri,
+                            contentDescription = "Album art",
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(28.dp))
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(28.dp)),
+                            // Fallback to music note if art fails to load
+                            onError = {}
                         )
-                    } else {
+                    }
+                    // Shown when artUri is null — music note placeholder
+                    if (artUri == null) {
                         Icon(
                             imageVector = Icons.Rounded.MusicNote,
                             contentDescription = null,
@@ -108,17 +114,15 @@ fun AudioPlayerScreen(
                 overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
             // Waveform scrubber
             LiquidGlassSurface(
                 cornerRadius = 20.dp,
                 alpha = 0.12f,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 0.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                     val progress = if (state.durationMs > 0)
                         state.positionMs.toFloat() / state.durationMs else 0f
 
@@ -128,33 +132,26 @@ fun AudioPlayerScreen(
                         onSeek = { p -> onSeek((p * state.durationMs).toLong()) },
                         modifier = Modifier.fillMaxWidth()
                     )
-
                     Spacer(Modifier.height(4.dp))
-
-                    // Time labels
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = formatMs(state.positionMs),
+                        Text(formatMs(state.positionMs),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                            fontSize = 11.sp
-                        )
-                        Text(
-                            text = formatMs(state.durationMs),
+                            fontSize = 11.sp)
+                        Text(formatMs(state.durationMs),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                            fontSize = 11.sp
-                        )
+                            fontSize = 11.sp)
                     }
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(18.dp))
 
-            // Controls
+            // Transport controls
             PlayerControls(
                 isPlaying = state.isPlaying,
                 skipSeconds = state.skipSeconds,
@@ -164,9 +161,23 @@ fun AudioPlayerScreen(
                 onSkipSecondsChange = onSkipSecondsChange
             )
 
-            // Lyrics section — no background, transparent
+            Spacer(Modifier.height(8.dp))
+
+            // Import lyrics button
+            TextButton(onClick = onImportLyrics) {
+                Icon(Icons.Rounded.Lyrics, null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    if (hasLyrics) "Change lyrics file" else "Import lyrics (.lrc / .srt)",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                )
+            }
+
+            // Lyrics panel — transparent, no background
             if (hasLyrics) {
-                Spacer(Modifier.height(16.dp))
                 LyricsOverlay(
                     lyrics = state.lyrics,
                     activeIndex = state.activeLyricIndex,
