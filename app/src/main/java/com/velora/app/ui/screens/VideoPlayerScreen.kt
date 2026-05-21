@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -16,12 +15,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.velora.app.PlayerState
 import com.velora.app.ui.components.*
@@ -36,14 +35,14 @@ fun VideoPlayerScreen(
     onSkipBackward: () -> Unit,
     onSeek: (Long) -> Unit,
     onSkipSecondsChange: (Int) -> Unit,
+    onImportLyrics: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val item = state.currentItem ?: return
     val hasLyrics = state.lyrics.isNotEmpty()
-
     var controlsVisible by remember { mutableStateOf(true) }
 
-    // Auto-hide controls after 3s of play
+    // Auto-hide controls 3s after playback starts
     LaunchedEffect(state.isPlaying, controlsVisible) {
         if (state.isPlaying && controlsVisible) {
             delay(3000)
@@ -60,25 +59,30 @@ fun VideoPlayerScreen(
                 indication = null
             ) { controlsVisible = !controlsVisible }
     ) {
-        // ExoPlayer video surface
-        if (player != null) {
-            AndroidView(
-                factory = { ctx ->
-                    PlayerView(ctx).apply {
-                        this.player = player
-                        useController = false // we draw our own controls
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                        setBackgroundColor(android.graphics.Color.BLACK)
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-        }
+        // ── Video surface ─────────────────────────────────────────────────────
+        // We always show the PlayerView regardless of whether player is null
+        // so it's ready when the player connects
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    useController = false
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    setBackgroundColor(android.graphics.Color.BLACK)
+                    setShutterBackgroundColor(android.graphics.Color.BLACK)
+                }
+            },
+            update = { playerView ->
+                // Wire in the player whenever it becomes available
+                playerView.player = player
+            },
+            modifier = Modifier.fillMaxSize()
+        )
 
-        // Controls overlay
+        // ── Controls overlay ──────────────────────────────────────────────────
         AnimatedVisibility(
             visible = controlsVisible,
             enter = fadeIn(),
@@ -98,63 +102,44 @@ fun VideoPlayerScreen(
                         )
                         .align(Alignment.TopCenter)
                 )
-
                 // Bottom gradient
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(220.dp)
+                        .height(260.dp)
                         .background(
                             Brush.verticalGradient(
-                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f))
+                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
                             )
                         )
                         .align(Alignment.BottomCenter)
                 )
 
-                // Title top
-                Column(
+                // Title
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(horizontal = 20.dp, vertical = 48.dp)
-                ) {
-                    Text(
-                        text = item.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                )
 
-                // Center: play/pause + skip
+                // Center transport
                 Row(
                     modifier = Modifier.align(Alignment.Center),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(32.dp)
                 ) {
-                    // Backward
-                    VideoControlButton(
-                        icon = Icons.Rounded.Replay,
-                        label = "-${state.skipSeconds}s",
-                        onClick = onSkipBackward
-                    )
+                    VideoControlButton(Icons.Rounded.Replay, "Skip backward", onSkipBackward)
 
-                    // Play/pause - larger
-                    LiquidGlassSurface(
-                        cornerRadius = 999.dp,
-                        alpha = 0.28f,
-                        modifier = Modifier.size(80.dp)
-                    ) {
-                        IconButton(
-                            onClick = onPlayPause,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            AnimatedContent(
-                                targetState = state.isPlaying,
-                                label = "vpp"
-                            ) { playing ->
+                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.28f,
+                        modifier = Modifier.size(80.dp)) {
+                        IconButton(onClick = onPlayPause, modifier = Modifier.fillMaxSize()) {
+                            AnimatedContent(targetState = state.isPlaying, label = "vpp") { playing ->
                                 Icon(
                                     imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                                     contentDescription = null,
@@ -165,29 +150,32 @@ fun VideoPlayerScreen(
                         }
                     }
 
-                    // Forward
-                    VideoControlButton(
-                        icon = Icons.Rounded.Forward10,
-                        label = "+${state.skipSeconds}s",
-                        onClick = onSkipForward
-                    )
+                    VideoControlButton(Icons.Rounded.Forward10, "Skip forward", onSkipForward)
                 }
 
-                // Bottom: iOS 26 scrubber + skip pill
+                // Bottom controls
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(horizontal = 20.dp, vertical = 32.dp),
+                        .padding(horizontal = 20.dp, vertical = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Skip seconds pill
-                    SkipSecondsPillVideo(
-                        current = state.skipSeconds,
-                        onChange = onSkipSecondsChange
-                    )
+                    // Import lyrics button
+                    TextButton(onClick = onImportLyrics) {
+                        Icon(Icons.Rounded.Lyrics, null,
+                            modifier = Modifier.size(14.dp), tint = Color.White.copy(0.7f))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            if (hasLyrics) "Change lyrics" else "Import lyrics",
+                            fontSize = 11.sp, color = Color.White.copy(0.7f)
+                        )
+                    }
 
-                    // iOS 26-style scrubber
+                    // Skip pill
+                    SkipSecondsPillVideo(current = state.skipSeconds, onChange = onSkipSecondsChange)
+
+                    // iOS 26 scrubber
                     VideoScrubber(
                         positionMs = state.positionMs,
                         durationMs = state.durationMs,
@@ -198,7 +186,7 @@ fun VideoPlayerScreen(
             }
         }
 
-        // Lyrics at bottom — always visible, transparent, no background
+        // Lyrics — always visible, transparent
         if (hasLyrics) {
             LyricsOverlay(
                 lyrics = state.lyrics,
@@ -207,7 +195,7 @@ fun VideoPlayerScreen(
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .height(160.dp)
-                    .padding(bottom = if (controlsVisible) 140.dp else 24.dp)
+                    .padding(bottom = if (controlsVisible) 150.dp else 24.dp)
             )
         }
     }
@@ -219,52 +207,29 @@ private fun VideoControlButton(
     label: String,
     onClick: () -> Unit
 ) {
-    LiquidGlassSurface(
-        cornerRadius = 20.dp,
-        alpha = 0.2f,
-        modifier = Modifier.size(60.dp)
-    ) {
-        IconButton(
-            onClick = onClick,
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                modifier = Modifier.size(32.dp),
-                tint = Color.White.copy(alpha = 0.9f)
-            )
+    LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.2f, modifier = Modifier.size(60.dp)) {
+        IconButton(onClick = onClick, modifier = Modifier.fillMaxSize()) {
+            Icon(icon, label, modifier = Modifier.size(32.dp), tint = Color.White.copy(alpha = 0.9f))
         }
     }
 }
 
 @Composable
-private fun SkipSecondsPillVideo(
-    current: Int,
-    onChange: (Int) -> Unit
-) {
-    LiquidGlassSurface(
-        cornerRadius = 999.dp,
-        alpha = 0.2f,
-        modifier = Modifier.wrapContentWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
-        ) {
+private fun SkipSecondsPillVideo(current: Int, onChange: (Int) -> Unit) {
+    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.22f, modifier = Modifier.wrapContentWidth()) {
+        Row(modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)) {
             listOf(5, 10).forEach { secs ->
                 val isSelected = current == secs
                 TextButton(
                     onClick = { onChange(secs) },
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = if (isSelected) Color.White else Color.White.copy(alpha = 0.5f)
+                        contentColor = if (isSelected) Color.White else Color.White.copy(alpha = 0.45f)
                     ),
-                    modifier = Modifier.padding(0.dp)
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    Text(
-                        text = "${secs}s",
+                    Text("${secs}s",
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        fontSize = 13.sp
-                    )
+                        fontSize = 13.sp)
                 }
             }
         }
