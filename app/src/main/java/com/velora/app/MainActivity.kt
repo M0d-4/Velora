@@ -11,7 +11,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -40,6 +42,7 @@ import com.velora.app.ui.components.LiquidGlassSurface
 import com.velora.app.ui.components.liquidPressEffect
 import com.velora.app.ui.screens.*
 import com.velora.app.ui.theme.VeloraTheme
+import kotlinx.coroutines.launch
 
 const val APP_VERSION = "1.0.0"
 
@@ -58,15 +61,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @UnstableApi
 @Composable
 fun VeloraApp(viewModel: PlayerViewModel) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val state by viewModel.state.collectAsState()
-
-    // Pager for swipe-to-switch tabs
-    val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
+
+    val pagerState = rememberPagerState(pageCount = { 2 })
 
     // Permissions
     val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
@@ -100,7 +103,7 @@ fun VeloraApp(viewModel: PlayerViewModel) {
     val lyricsPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent())
         { uri -> uri?.let { viewModel.importLyricsFile(it) } }
 
-    // Auto-jump to Now Playing tab when track starts
+    // Auto-jump to Now Playing when track starts
     LaunchedEffect(state.currentItem) {
         if (state.currentItem != null) scope.launch { pagerState.animateScrollToPage(1) }
     }
@@ -119,17 +122,17 @@ fun VeloraApp(viewModel: PlayerViewModel) {
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)
             .background(MaterialTheme.colorScheme.background)) {
 
-            // ── Swipeable page content ─────────────────────────────────────────
+            // Swipeable pages
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize().padding(bottom = if (isVideoFullscreen) 0.dp else 72.dp),
-                // Disable swiping while video is fullscreen or in video overlay
                 userScrollEnabled = !isVideoFullscreen
             ) { page ->
                 when (page) {
                     0 -> if (hasPermission) {
                         MediaListScreen(
-                            state = state, filteredItems = viewModel.filteredList(),
+                            state = state,
+                            filteredItems = viewModel.filteredList(),
                             onItemClick = {
                                 viewModel.playItem(it)
                                 scope.launch { pagerState.animateScrollToPage(1) }
@@ -186,7 +189,7 @@ fun VeloraApp(viewModel: PlayerViewModel) {
                 }
             }
 
-            // ── Mini player (library tab only) ────────────────────────────────
+            // Mini player (library tab only)
             AnimatedVisibility(
                 visible = selectedTab == 0 && state.currentItem != null,
                 enter = slideInVertically { it } + fadeIn(),
@@ -194,15 +197,20 @@ fun VeloraApp(viewModel: PlayerViewModel) {
                 modifier = Modifier.align(Alignment.BottomCenter)
                     .padding(bottom = 72.dp, start = 12.dp, end = 12.dp)
             ) {
-                MiniPlayer(state = state, onPlayPause = viewModel::togglePlayPause,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(1) } })
+                MiniPlayer(
+                    state = state,
+                    onPlayPause = viewModel::togglePlayPause,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(1) } }
+                )
             }
 
-            // ── Bottom nav ────────────────────────────────────────────────────
-            AnimatedVisibility(visible = !isVideoFullscreen,
+            // Bottom nav
+            AnimatedVisibility(
+                visible = !isVideoFullscreen,
                 enter = slideInVertically { it } + fadeIn(),
                 exit  = slideOutVertically { it } + fadeOut(),
-                modifier = Modifier.align(Alignment.BottomCenter)) {
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
                 LiquidBottomNav(
                     selectedTab = selectedTab,
                     onTabSelected = { scope.launch { pagerState.animateScrollToPage(it) } },
@@ -210,7 +218,7 @@ fun VeloraApp(viewModel: PlayerViewModel) {
                 )
             }
 
-            // ── Favourite toast ────────────────────────────────────────────────
+            // Favourite toast
             AnimatedVisibility(
                 visible = state.showFavouriteToast,
                 enter = slideInVertically(spring(stiffness = Spring.StiffnessMediumLow)) { it } + fadeIn(tween(200)),
@@ -233,9 +241,10 @@ fun VeloraApp(viewModel: PlayerViewModel) {
                 }
             }
 
-            // ── App version ────────────────────────────────────────────────────
+            // App version text
             AnimatedVisibility(
-                visible = showVersionText, enter = fadeIn(tween(300)), exit = fadeOut(tween(300)),
+                visible = showVersionText,
+                enter = fadeIn(tween(300)), exit = fadeOut(tween(300)),
                 modifier = Modifier.align(Alignment.BottomCenter)
                     .padding(bottom = if (!isVideoFullscreen) 76.dp else 6.dp).fillMaxWidth()
             ) {
@@ -277,8 +286,7 @@ private fun NavItem(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val indicatorScale by animateFloatAsState(
-        if (selected) 1f else 0f,
-        spring(stiffness = Spring.StiffnessMediumLow), label = "ind")
+        if (selected) 1f else 0f, spring(stiffness = Spring.StiffnessMediumLow), label = "ind")
     val color = if (selected) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurface.copy(0.5f)
 
@@ -360,7 +368,8 @@ private fun PermissionPrompt(onRequest: () -> Unit) {
 @Composable
 private fun NothingPlayingPlaceholder(onBrowse: () -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Icon(Icons.Rounded.PlayCircleOutline, null, Modifier.size(72.dp),
                 tint = MaterialTheme.colorScheme.onSurface.copy(0.25f))
             Text("Nothing playing yet", color = MaterialTheme.colorScheme.onSurface.copy(0.5f))
@@ -368,12 +377,3 @@ private fun NothingPlayingPlaceholder(onBrowse: () -> Unit) {
         }
     }
 }
-
-fun Modifier.clickable(
-    interactionSource: MutableInteractionSource,
-    indication: androidx.compose.foundation.Indication?,
-    onClick: () -> Unit
-): Modifier = this.then(
-    androidx.compose.foundation.clickable(
-        interactionSource = interactionSource, indication = indication, onClick = onClick)
-)

@@ -2,16 +2,19 @@ package com.velora.app.service
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.os.Bundle
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 import com.velora.app.MainActivity
 
 @UnstableApi
@@ -28,22 +31,19 @@ class PlayerService : MediaSessionService() {
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                     .setUsage(C.USAGE_MEDIA)
                     .build(),
-                /* handleAudioFocus= */ true
+                true
             )
             .setHandleAudioBecomingNoisy(true)
-            // Allow video rendering on all tracks including MP4
             .build()
 
-        // Pending intent to return to app when tapping the notification
         val activityIntent = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Custom skip-forward command for the notification
-        val skipForwardCommand = SessionCommand("ACTION_SKIP_FORWARD", android.os.Bundle.EMPTY)
-        val skipBackwardCommand = SessionCommand("ACTION_SKIP_BACKWARD", android.os.Bundle.EMPTY)
+        val skipForwardCommand  = SessionCommand("ACTION_SKIP_FORWARD",  Bundle.EMPTY)
+        val skipBackwardCommand = SessionCommand("ACTION_SKIP_BACKWARD", Bundle.EMPTY)
 
         val skipForwardButton = CommandButton.Builder()
             .setDisplayName("Skip Forward")
@@ -65,8 +65,8 @@ class PlayerService : MediaSessionService() {
                     session: MediaSession,
                     controller: MediaSession.ControllerInfo,
                     customCommand: SessionCommand,
-                    args: android.os.Bundle
-                ): androidx.media3.session.SessionResult {
+                    args: Bundle
+                ): ListenableFuture<SessionResult> {
                     when (customCommand.customAction) {
                         "ACTION_SKIP_FORWARD" -> {
                             val pos = player.currentPosition + 10_000L
@@ -77,9 +77,7 @@ class PlayerService : MediaSessionService() {
                             player.seekTo(pos.coerceAtLeast(0L))
                         }
                     }
-                    return androidx.media3.session.SessionResult(
-                        androidx.media3.session.SessionResult.RESULT_SUCCESS
-                    )
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
             })
             .build()
@@ -88,11 +86,7 @@ class PlayerService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = mediaSession
 
     override fun onDestroy() {
-        mediaSession?.run {
-            player.release()
-            release()
-            mediaSession = null
-        }
+        mediaSession?.run { player.release(); release(); mediaSession = null }
         super.onDestroy()
     }
 }
