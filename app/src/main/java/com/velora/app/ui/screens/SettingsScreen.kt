@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.velora.app.ui.components.LiquidGlassSurface
 import com.velora.app.ui.screens.AnimatedBackground
 
-const val SETTINGS_APP_VERSION = "1.1.1"
+const val SETTINGS_APP_VERSION = "1.1.2"
 
 @Composable
 fun SettingsScreen(
