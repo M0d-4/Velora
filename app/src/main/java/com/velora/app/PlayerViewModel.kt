@@ -220,9 +220,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.currentItem?.isVideo == true) return
         releaseVisualizer()
         try {
-            // audioSessionId 0 = global mix (works without RECORD_AUDIO on most devices)
-            val audioSessionId = controller?.audioSessionId ?: 0
-            val vis = Visualizer(audioSessionId)
+            // Use session ID 0 = global audio mix output.
+            // MediaController does not expose audioSessionId; 0 captures the final mix.
+            val vis = Visualizer(0)
             vis.captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(1024)
             vis.setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
                 override fun onWaveFormDataCapture(v: Visualizer, waveform: ByteArray, samplingRate: Int) {

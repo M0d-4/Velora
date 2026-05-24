@@ -3,9 +3,9 @@ name: Velora CI/CD
 # ─────────────────────────────────────────────────────────────────────────────
 # TRIGGER SUMMARY
 #
-# Push to main/develop        → lint + test + build debug + publish BETA release
-# Pull request to main        → lint + test + build debug (no publish)
-# workflow_dispatch (manual)  → lint + test + build SIGNED RELEASE + publish RELEASE
+# Push to main/develop        → lint + test + build SIGNED release APK + publish BETA pre-release
+# Pull request to main        → lint + test + build debug APK only (no publish)
+# workflow_dispatch (manual)  → lint + test + build SIGNED release APK + AAB + publish RELEASE
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       version_override:
-        description: 'Release version (e.g. 1.1.1). Leave blank to use app build.gradle value.'
+        description: 'Release version (e.g. 1.1.1). Leave blank to read from app/build.gradle.'
         required: false
         default: ''
 
@@ -35,7 +35,7 @@ env:
   GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true'
 
 # ─────────────────────────────────────────────────────────────────────────────
-# JOB 1 — LINT & UNIT TESTS (always runs)
+# JOB 1 — LINT & UNIT TESTS  (always runs on every trigger)
 # ─────────────────────────────────────────────────────────────────────────────
 jobs:
   lint-and-test:
@@ -86,13 +86,14 @@ jobs:
           retention-days: 14
 
 # ─────────────────────────────────────────────────────────────────────────────
-# JOB 2 — BUILD DEBUG APK (always after lint passes)
+# JOB 2 — BUILD DEBUG APK  (PR checks only — cheap, no signing needed)
 # ─────────────────────────────────────────────────────────────────────────────
   build-debug:
-    name: Build Debug APK
+    name: Build Debug APK (PR check)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: lint-and-test
+    if: github.event_name == 'pull_request'
 
     steps:
       - uses: actions/checkout@v4
@@ -117,112 +118,44 @@ jobs:
 
       - name: Stage APK
         run: |
-          SHORT_SHA="${{ github.sha }}"
-          SHORT_SHA="${SHORT_SHA:0:7}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
           mkdir -p artifacts
           cp app/build/outputs/apk/debug/app-debug.apk \
              "artifacts/Velora-debug-${SHORT_SHA}.apk"
 
-      - name: Upload debug APK artifact
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
           path: artifacts/Velora-debug-*.apk
-          retention-days: 30
+          retention-days: 14
 
-# ─────────────────────────────────────────────────────────────────────────────
-# JOB 3 — PUBLISH BETA (auto, on every successful push to main/develop)
-# ─────────────────────────────────────────────────────────────────────────────
-  publish-beta:
-    name: Publish Beta Release
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: build-debug
-    # Only on push (not PRs, not manual runs)
-    if: github.event_name == 'push'
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v4
+      - name: Comment APK size on PR
+        if: success()
+        uses: actions/github-script@v7
         with:
-          fetch-depth: 0
-
-      - name: Download debug APK
-        uses: actions/download-artifact@v4
-        with:
-          name: debug-apk
-          path: beta-artifacts/
-
-      - name: Compute beta tag
-        id: beta_tag
-        run: |
-          SHORT_SHA="${{ github.sha }}"
-          SHORT_SHA="${SHORT_SHA:0:7}"
-          BRANCH="${{ github.ref_name }}"
-          # Sanitise branch name for use in a tag (replace / with -)
-          BRANCH_SAFE="${BRANCH//\//-}"
-          TAG="beta-${BRANCH_SAFE}-${SHORT_SHA}"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-
-      - name: Generate commit list since last beta
-        id: commits
-        run: |
-          PREV=$(git tag --sort=-creatordate | grep '^beta-' | head -1)
-          if [ -z "$PREV" ]; then
-            LOG=$(git log --oneline --no-merges -20)
-          else
-            LOG=$(git log --oneline --no-merges "${PREV}..HEAD")
-          fi
-          {
-            echo "log<<DELIMITER"
-            echo "$LOG"
-            echo "DELIMITER"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Delete previous beta tags on this branch (keep last 5)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          BRANCH_SAFE="${{ github.ref_name }}"
-          BRANCH_SAFE="${BRANCH_SAFE//\//-}"
-          # List beta tags for this branch, skip newest 5, delete the rest
-          OLD_TAGS=$(git tag --sort=-creatordate | grep "^beta-${BRANCH_SAFE}-" | tail -n +6)
-          for t in $OLD_TAGS; do
-            git push origin --delete "$t" 2>/dev/null || true
-          done
-
-      - name: Create beta GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.beta_tag.outputs.tag }}
-          name: "🧪 Beta — ${{ steps.beta_tag.outputs.short_sha }} (${{ github.ref_name }})"
-          prerelease: true
-          body: |
-            ## Velora Beta Build
-
-            > **This is an automated beta build** generated from commit `${{ github.sha }}` on branch `${{ github.ref_name }}`.
-            > It may contain incomplete features or bugs. Use for testing only.
-
-            ### Commits in this build
-            ${{ steps.commits.outputs.log }}
-
-            ---
-            **Branch:** `${{ github.ref_name }}`
-            **Commit:** `${{ github.sha }}`
-            **Built:** ${{ github.run_id }}
-          files: beta-artifacts/*.apk
+          script: |
+            const fs = require('fs');
+            const path = 'app/build/outputs/apk/debug/app-debug.apk';
+            const bytes = fs.statSync(path).size;
+            const mb = (bytes / 1024 / 1024).toFixed(2);
+            const body = `### ✅ Build passed\n\n**Debug APK size:** ${mb} MB`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
 
 # ─────────────────────────────────────────────────────────────────────────────
-# JOB 4 — BUILD SIGNED RELEASE APK (manual workflow_dispatch only)
+# JOB 3 — BUILD SIGNED RELEASE APK  (push + manual — shared by beta & release)
 # ─────────────────────────────────────────────────────────────────────────────
-  build-release:
+  build-signed:
     name: Build Signed Release APK
     runs-on: ubuntu-latest
     timeout-minutes: 35
     needs: lint-and-test
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
     steps:
       - uses: actions/checkout@v4
@@ -261,7 +194,10 @@ jobs:
             -Pandroid.injected.signing.key.password="$KEY_PASSWORD" \
             --stacktrace
 
+      # AAB is only needed for the full manual release, but build it always
+      # so the artifact is available if needed. Skipped on push to save time.
       - name: Build release AAB (Play Store)
+        if: github.event_name == 'workflow_dispatch'
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -274,33 +210,38 @@ jobs:
             -Pandroid.injected.signing.key.password="$KEY_PASSWORD" \
             --stacktrace
 
-      - name: Resolve version
+      - name: Resolve version name
         id: version
         run: |
           if [ -n "${{ inputs.version_override }}" ]; then
             echo "version=${{ inputs.version_override }}" >> "$GITHUB_OUTPUT"
           else
-            # Extract versionName from build.gradle
             VER=$(grep 'versionName' app/build.gradle | head -1 | grep -oP '"\K[^"]+')
             echo "version=${VER:-1.1.1}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Stage release artifacts
+      - name: Stage artifacts
         run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          VER="${{ steps.version.outputs.version }}"
           mkdir -p artifacts
           cp app/build/outputs/apk/release/app-release.apk \
-             "artifacts/Velora-v${{ steps.version.outputs.version }}-release.apk"
-          cp app/build/outputs/bundle/release/app-release.aab \
-             "artifacts/Velora-v${{ steps.version.outputs.version }}.aab"
+             "artifacts/Velora-v${VER}-release-${SHORT_SHA}.apk"
+          # AAB only exists on manual dispatch
+          if [ -f app/build/outputs/bundle/release/app-release.aab ]; then
+            cp app/build/outputs/bundle/release/app-release.aab \
+               "artifacts/Velora-v${VER}.aab"
+          fi
 
-      - name: Upload release APK artifact
+      - name: Upload signed APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
-          path: artifacts/Velora-v*-release.apk
+          name: signed-release-apk
+          path: artifacts/Velora-v*-release-*.apk
           retention-days: 90
 
-      - name: Upload release AAB artifact
+      - name: Upload AAB artifact
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: release-aab
@@ -312,13 +253,95 @@ jobs:
         run: rm -f "$GITHUB_WORKSPACE/app/velora-release.jks"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# JOB 5 — PUBLISH RELEASE (manual workflow_dispatch only, after signed build)
+# JOB 4 — PUBLISH BETA  (auto, every successful push to main/develop)
+#          Uses the signed release APK from job 3
+# ─────────────────────────────────────────────────────────────────────────────
+  publish-beta:
+    name: Publish Beta Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build-signed
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download signed release APK
+        uses: actions/download-artifact@v4
+        with:
+          name: signed-release-apk
+          path: beta-artifacts/
+
+      - name: Compute beta tag
+        id: beta_tag
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          BRANCH_SAFE="${{ github.ref_name }}"
+          BRANCH_SAFE="${BRANCH_SAFE//\//-}"
+          TAG="beta-${BRANCH_SAFE}-${SHORT_SHA}"
+          echo "tag=${TAG}"           >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "branch_safe=${BRANCH_SAFE}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate commit list since last beta
+        id: commits
+        run: |
+          PREV=$(git tag --sort=-creatordate | grep '^beta-' | head -1)
+          if [ -z "$PREV" ]; then
+            LOG=$(git log --oneline --no-merges -20)
+          else
+            LOG=$(git log --oneline --no-merges "${PREV}..HEAD")
+          fi
+          {
+            echo "log<<DELIMITER"
+            echo "$LOG"
+            echo "DELIMITER"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Prune old beta tags for this branch (keep newest 5)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH_SAFE="${{ steps.beta_tag.outputs.branch_safe }}"
+          OLD=$(git tag --sort=-creatordate | grep "^beta-${BRANCH_SAFE}-" | tail -n +6)
+          for t in $OLD; do
+            git push origin --delete "$t" 2>/dev/null || true
+          done
+
+      - name: Publish beta pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.beta_tag.outputs.tag }}
+          name: "🧪 Beta — ${{ steps.beta_tag.outputs.short_sha }} (${{ github.ref_name }})"
+          prerelease: true
+          body: |
+            ## Velora Beta Build
+
+            > **Automated beta build** from commit `${{ github.sha }}` on `${{ github.ref_name }}`.
+            > Built with the signed release keystore. May contain incomplete features or bugs.
+
+            ### Commits in this build
+            ${{ steps.commits.outputs.log }}
+
+            ---
+            **Branch:** `${{ github.ref_name }}`
+            **Commit:** `${{ github.sha }}`
+            **Run:** ${{ github.run_id }}
+          files: beta-artifacts/*.apk
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 5 — PUBLISH RELEASE  (manual workflow_dispatch only)
+#          Uses the signed APK + AAB from job 3
 # ─────────────────────────────────────────────────────────────────────────────
   publish-release:
     name: Publish Official Release
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: build-release
+    needs: build-signed
     if: github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
@@ -328,10 +351,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download release APK
+      - name: Download signed release APK
         uses: actions/download-artifact@v4
         with:
-          name: release-apk
+          name: signed-release-apk
           path: release-artifacts/
 
       - name: Download release AAB
@@ -350,10 +373,9 @@ jobs:
             echo "version=${VER:-1.1.1}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Generate changelog since last release tag
+      - name: Generate changelog since last stable release
         id: changelog
         run: |
-          # Find the last non-beta tag
           PREV=$(git tag --sort=-creatordate | grep -v '^beta-' | head -1)
           if [ -z "$PREV" ]; then
             LOG=$(git log --oneline --no-merges -30)
@@ -366,7 +388,7 @@ jobs:
             echo "DELIMITER"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Create official GitHub Release
+      - name: Publish official release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
@@ -386,7 +408,7 @@ jobs:
 
             | File | Description |
             |------|-------------|
-            | `Velora-v*-release.apk` | Direct install on Android 8+ |
+            | `Velora-v*-release-*.apk` | Direct install on Android 8+ |
             | `Velora-v*.aab` | Google Play Console upload |
 
           files: |
