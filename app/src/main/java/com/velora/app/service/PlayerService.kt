@@ -31,7 +31,7 @@ class PlayerService : MediaSessionService() {
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                     .setUsage(C.USAGE_MEDIA)
                     .build(),
-                true
+                /* handleAudioFocus= */ true
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
@@ -81,6 +81,17 @@ class PlayerService : MediaSessionService() {
                 }
             })
             .build()
+    }
+
+    // Stop playback when the user swipes the app away from recents
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        val player = mediaSession?.player
+        if (player != null) {
+            player.stop()
+            player.clearMediaItems()
+        }
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = mediaSession

@@ -1,6 +1,7 @@
 package com.velora.app
 
 import android.Manifest
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -44,7 +46,7 @@ import com.velora.app.ui.screens.*
 import com.velora.app.ui.theme.VeloraTheme
 import kotlinx.coroutines.launch
 
-const val APP_VERSION = "1.0.0"
+const val APP_VERSION = "1.1.1"
 
 @UnstableApi
 class MainActivity : ComponentActivity() {
@@ -57,19 +59,39 @@ class MainActivity : ComponentActivity() {
             if (mime == "application/zip" || uri.path?.endsWith(".zip") == true)
                 viewModel.importZip(uri) else viewModel.playUri(uri, mime)
         }
-        setContent { VeloraTheme { VeloraApp(viewModel) } }
+        setContent {
+            // Material You preference persisted via SharedPreferences
+            val prefs = getSharedPreferences("velora_prefs", MODE_PRIVATE)
+            var useMaterialYou by remember { mutableStateOf(prefs.getBoolean("material_you", true)) }
+            VeloraTheme(useMaterialYou = useMaterialYou) {
+                VeloraApp(
+                    viewModel = viewModel,
+                    useMaterialYou = useMaterialYou,
+                    onMaterialYouToggle = { enabled ->
+                        useMaterialYou = enabled
+                        prefs.edit().putBoolean("material_you", enabled).apply()
+                    }
+                )
+            }
+        }
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @UnstableApi
 @Composable
-fun VeloraApp(viewModel: PlayerViewModel) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+fun VeloraApp(
+    viewModel: PlayerViewModel,
+    useMaterialYou: Boolean,
+    onMaterialYouToggle: (Boolean) -> Unit
+) {
+    val context = LocalContext.current
+    val activity = context as? ComponentActivity
     val state by viewModel.state.collectAsState()
     val scope = rememberCoroutineScope()
 
-    val pagerState = rememberPagerState(pageCount = { 2 })
+    // 3 tabs: Library (0), Now Playing (1), Settings (2)
+    val pagerState = rememberPagerState(pageCount = { 3 })
 
     // Permissions
     val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
@@ -85,7 +107,7 @@ fun VeloraApp(viewModel: PlayerViewModel) {
     ) { results -> hasPermission = results.values.any { it } }
     LaunchedEffect(Unit) { if (!hasPermission) permissionLauncher.launch(permissions) }
 
-    // ExoPlayer
+    // ExoPlayer connection
     var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
     DisposableEffect(Unit) {
         val token = SessionToken(context,
@@ -97,7 +119,6 @@ fun VeloraApp(viewModel: PlayerViewModel) {
         onDispose { MediaController.releaseFuture(future) }
     }
 
-    // File pickers
     val zipPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent())
         { uri -> uri?.let { viewModel.importZip(it) } }
     val lyricsPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent())
@@ -113,19 +134,30 @@ fun VeloraApp(viewModel: PlayerViewModel) {
     val showVersionText = !isVideoPlayer || !state.isPlaying
     val isVideoFullscreen = isVideoPlayer && state.isLandscape
 
+    val onRotate: () -> Unit = {
+        val landscape = !state.isLandscape
+        viewModel.setLandscape(landscape)
+        activity?.requestedOrientation = if (landscape)
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        else
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+    }
+
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(state.zipImportMessage) {
         state.zipImportMessage?.let { snackbarHostState.showSnackbar(it); viewModel.clearZipMessage() }
     }
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, containerColor = Color.Transparent) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)
-            .background(MaterialTheme.colorScheme.background)) {
-
-            // Swipeable pages
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(top = innerPadding.calculateTopPadding())
+        ) {
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.fillMaxSize().padding(bottom = if (isVideoFullscreen) 0.dp else 72.dp),
+                modifier = Modifier.fillMaxSize()
+                    .padding(bottom = if (isVideoFullscreen) 0.dp else 72.dp),
                 userScrollEnabled = !isVideoFullscreen
             ) { page ->
                 when (page) {
@@ -147,7 +179,9 @@ fun VeloraApp(viewModel: PlayerViewModel) {
                             onAddToFavourites = viewModel::toggleFavourite,
                             isFavourite = viewModel::isFavourite,
                             onMergePlaylists = viewModel::mergePlaylists,
-                            onDeletePlaylist = viewModel::deletePlaylist
+                            onDeletePlaylist = viewModel::deletePlaylist,
+                            onAddToPlaylist = viewModel::addToPlaylist,
+                            nonFavPlaylists = state.playlists.filter { !it.isFavourites }
                         )
                     } else PermissionPrompt { permissionLauncher.launch(permissions) }
 
@@ -168,7 +202,7 @@ fun VeloraApp(viewModel: PlayerViewModel) {
                             onQueueToggle = viewModel::toggleQueueMode,
                             onSpeedChange = viewModel::setPlaybackSpeed,
                             isFavourite = state.currentItem?.let { viewModel.isFavourite(it) } ?: false,
-                            onRotate = { viewModel.setLandscape(!state.isLandscape) }
+                            onRotate = onRotate
                         )
                         else -> AudioPlayerScreen(
                             state = state,
@@ -183,13 +217,18 @@ fun VeloraApp(viewModel: PlayerViewModel) {
                             onQueueToggle = viewModel::toggleQueueMode,
                             onSpeedChange = viewModel::setPlaybackSpeed,
                             isFavourite = state.currentItem?.let { viewModel.isFavourite(it) } ?: false,
-                            onRotate = { viewModel.setLandscape(!state.isLandscape) }
+                            onRotate = onRotate
                         )
                     }
+
+                    2 -> SettingsScreen(
+                        useMaterialYou = useMaterialYou,
+                        onMaterialYouToggle = onMaterialYouToggle
+                    )
                 }
             }
 
-            // Mini player (library tab only)
+            // Mini player on library tab
             AnimatedVisibility(
                 visible = selectedTab == 0 && state.currentItem != null,
                 enter = slideInVertically { it } + fadeIn(),
@@ -197,11 +236,8 @@ fun VeloraApp(viewModel: PlayerViewModel) {
                 modifier = Modifier.align(Alignment.BottomCenter)
                     .padding(bottom = 72.dp, start = 12.dp, end = 12.dp)
             ) {
-                MiniPlayer(
-                    state = state,
-                    onPlayPause = viewModel::togglePlayPause,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(1) } }
-                )
+                MiniPlayer(state = state, onPlayPause = viewModel::togglePlayPause,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(1) } })
             }
 
             // Bottom nav
@@ -218,7 +254,7 @@ fun VeloraApp(viewModel: PlayerViewModel) {
                 )
             }
 
-            // Favourite toast
+            // Favorites toast
             AnimatedVisibility(
                 visible = state.showFavouriteToast,
                 enter = slideInVertically(spring(stiffness = Spring.StiffnessMediumLow)) { it } + fadeIn(tween(200)),
@@ -233,15 +269,16 @@ fun VeloraApp(viewModel: PlayerViewModel) {
                         val heartScale by inf.animateFloat(1f, 1.22f,
                             infiniteRepeatable(tween(500), RepeatMode.Reverse), "ths")
                         Icon(Icons.Rounded.Favorite, null,
-                            modifier = Modifier.size(16.dp).graphicsLayer { scaleX = heartScale; scaleY = heartScale },
+                            modifier = Modifier.size(16.dp)
+                                .graphicsLayer { scaleX = heartScale; scaleY = heartScale },
                             tint = Color(0xFFFF3B6B))
-                        Text("Added to Favourites", fontSize = 14.sp,
+                        Text("Added to Favorites", fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
                     }
                 }
             }
 
-            // App version text
+            // Version text
             AnimatedVisibility(
                 visible = showVersionText,
                 enter = fadeIn(tween(300)), exit = fadeOut(tween(300)),
@@ -255,23 +292,25 @@ fun VeloraApp(viewModel: PlayerViewModel) {
     }
 }
 
-// ── Bottom nav ────────────────────────────────────────────────────────────────
+// ── Bottom nav: 3 tabs ─────────────────────────────────────────────────────────
 
 @Composable
 private fun LiquidBottomNav(selectedTab: Int, onTabSelected: (Int) -> Unit, hasNowPlaying: Boolean) {
     Box(modifier = Modifier.fillMaxWidth()
         .background(Brush.verticalGradient(listOf(Color.Transparent,
             MaterialTheme.colorScheme.background.copy(0.97f))))
-        .navigationBarsPadding()) {
+        .navigationBarsPadding()
+    ) {
         LiquidGlassSurface(cornerRadius = 24.dp, alpha = 0.18f,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 6.dp)) {
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly) {
                 NavItem(Icons.Rounded.LibraryMusic, "Library", selectedTab == 0) { onTabSelected(0) }
                 NavItem(
                     if (hasNowPlaying) Icons.Rounded.MusicVideo else Icons.Rounded.PlayCircle,
-                    "Now Playing", selectedTab == 1, badge = hasNowPlaying
+                    "Playing", selectedTab == 1, badge = hasNowPlaying
                 ) { onTabSelected(1) }
+                NavItem(Icons.Rounded.Settings, "Settings", selectedTab == 2) { onTabSelected(2) }
             }
         }
     }
@@ -280,23 +319,21 @@ private fun LiquidBottomNav(selectedTab: Int, onTabSelected: (Int) -> Unit, hasN
 @Composable
 private fun NavItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String, selected: Boolean, badge: Boolean = false,
-    onClick: () -> Unit
+    label: String, selected: Boolean, badge: Boolean = false, onClick: () -> Unit
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val indicatorScale by animateFloatAsState(
         if (selected) 1f else 0f, spring(stiffness = Spring.StiffnessMediumLow), label = "ind")
-    val color = if (selected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurface.copy(0.5f)
+    val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.5f)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(horizontal = 20.dp).liquidPressEffect(pressed)) {
-        IconButton(onClick = onClick, modifier = Modifier.size(44.dp), interactionSource = interaction) {
+        modifier = Modifier.padding(horizontal = 10.dp).liquidPressEffect(pressed)) {
+        IconButton(onClick = onClick, modifier = Modifier.size(40.dp), interactionSource = interaction) {
             Box {
-                Icon(icon, label, tint = color, modifier = Modifier.size(24.dp))
+                Icon(icon, label, tint = color, modifier = Modifier.size(22.dp))
                 if (badge && !selected) {
-                    Box(Modifier.size(7.dp)
+                    Box(Modifier.size(6.dp)
                         .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(999.dp))
                         .align(Alignment.TopEnd))
                 }
@@ -304,13 +341,13 @@ private fun NavItem(
         }
         Text(label, fontSize = 9.sp, color = color,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
-        Box(Modifier.width(20.dp).height(2.dp)
+        Box(Modifier.width(18.dp).height(2.dp)
             .graphicsLayer { scaleX = indicatorScale; alpha = indicatorScale }
             .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(999.dp)))
     }
 }
 
-// ── Mini player ───────────────────────────────────────────────────────────────
+// ── Mini player ────────────────────────────────────────────────────────────────
 
 @Composable
 private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClick: () -> Unit) {
@@ -347,7 +384,7 @@ private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClick: () 
     }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun PermissionPrompt(onRequest: () -> Unit) {
@@ -357,7 +394,8 @@ private fun PermissionPrompt(onRequest: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Icon(Icons.Rounded.FolderOpen, null, Modifier.size(52.dp), tint = MaterialTheme.colorScheme.primary)
                 Text("Storage Access Needed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("Velora needs access to your media files.", style = MaterialTheme.typography.bodySmall,
+                Text("Velora needs access to your media files.",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(0.7f))
                 Button(onClick = onRequest) { Text("Grant Permission") }
             }
@@ -368,8 +406,7 @@ private fun PermissionPrompt(onRequest: () -> Unit) {
 @Composable
 private fun NothingPlayingPlaceholder(onBrowse: () -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Icon(Icons.Rounded.PlayCircleOutline, null, Modifier.size(72.dp),
                 tint = MaterialTheme.colorScheme.onSurface.copy(0.25f))
             Text("Nothing playing yet", color = MaterialTheme.colorScheme.onSurface.copy(0.5f))
