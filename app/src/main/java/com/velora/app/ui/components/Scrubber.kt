@@ -24,7 +24,7 @@ import com.velora.app.util.MediaRepository
  * iOS 26 style video scrubber — a capsule track with a bright thumb pill that expands on drag.
  */
 @Composable
-fun VideoScrubber(
+fun MediaScrubber(
     positionMs: Long,
     durationMs: Long,
     onSeek: (Long) -> Unit,

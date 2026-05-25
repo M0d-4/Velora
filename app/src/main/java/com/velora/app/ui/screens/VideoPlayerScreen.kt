@@ -145,7 +145,7 @@ fun VideoPlayerScreen(
                             isVideoOverlay = true)
                         SkipSecondsPillVideo(current = state.skipSeconds, onChange = { onSkipSecondsChange(it); lastInteractionTime = System.currentTimeMillis() })
                     }
-                    VideoScrubber(positionMs = state.positionMs, durationMs = state.durationMs,
+                    MediaScrubber(positionMs = state.positionMs, durationMs = state.durationMs,
                         onSeek = { onSeek(it); lastInteractionTime = System.currentTimeMillis() },
                         modifier = Modifier.fillMaxWidth())
                 }

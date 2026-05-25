@@ -169,24 +169,16 @@ private fun AudioPlayerPortrait(
                 }
             }
             Spacer(Modifier.height(14.dp))
-            // iOS 26-style waveform scrubber card
+            // iOS 26-style scrubber card (matches video player)
             LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-                    val progress = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f
-                    AudioWaveformBar(
-                        amplitudes = state.waveformAmplitudes,
-                        progress = progress,
-                        onSeek = { p -> onSeek((p * state.durationMs).toLong()) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(formatMs(state.positionMs), style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 11.sp)
-                        Text(formatMs(state.durationMs), style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 11.sp)
-                    }
-                }
+                MediaScrubber(
+                    positionMs = state.positionMs,
+                    durationMs = state.durationMs,
+                    onSeek = onSeek,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                )
             }
             Spacer(Modifier.height(12.dp))
             // Player controls
@@ -259,19 +251,14 @@ private fun AudioPlayerLandscape(
                     onSkipSecondsChange = onSkipSecondsChange, onFavouriteToggle = onFavouriteToggle,
                     onShuffleToggle = onShuffleToggle, onQueueToggle = onQueueToggle)
                 LiquidGlassSurface(cornerRadius = 16.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                        val progress = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f
-                        AudioWaveformBar(amplitudes = state.waveformAmplitudes, progress = progress,
-                            onSeek = { p -> onSeek((p * state.durationMs).toLong()) },
-                            modifier = Modifier.fillMaxWidth())
-                        Spacer(Modifier.height(4.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(formatMs(state.positionMs), style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 11.sp)
-                            Text(formatMs(state.durationMs), style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 11.sp)
-                        }
-                    }
+                    MediaScrubber(
+                        positionMs = state.positionMs,
+                        durationMs = state.durationMs,
+                        onSeek = onSeek,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    )
                 }
             }
         }
