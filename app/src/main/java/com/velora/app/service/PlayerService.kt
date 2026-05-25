@@ -8,6 +8,7 @@ import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
@@ -16,6 +17,7 @@ import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.velora.app.MainActivity
+import com.velora.app.R
 
 @UnstableApi
 class PlayerService : MediaSessionService() {
@@ -34,7 +36,12 @@ class PlayerService : MediaSessionService() {
                 /* handleAudioFocus= */ true
             )
             .setHandleAudioBecomingNoisy(true)
+            // Loudness normalisation OFF — lets the track play at its native level
+            .setSkipSilenceEnabled(false)
             .build()
+
+        // Full volume — ExoPlayer defaults to 1f but be explicit
+        player.volume = 1f
 
         val activityIntent = PendingIntent.getActivity(
             this, 0,
@@ -81,9 +88,19 @@ class PlayerService : MediaSessionService() {
                 }
             })
             .build()
+
+        // Media3 handles the media notification automatically via MediaSessionService.
+        // Calling setMediaNotificationProvider gives us a live notification with
+        // album art, play/pause, skip — and powers the lock-screen Now Playing widget.
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this)
+                .setNotificationId(1001)
+                .setChannelId("velora_playback")
+                .setChannelName(androidx.media3.session.R.string.default_notification_channel_name)
+                .build()
+        )
     }
 
-    // Stop playback when the user swipes the app away from recents
     override fun onTaskRemoved(rootIntent: Intent?) {
         val player = mediaSession?.player
         if (player != null) {

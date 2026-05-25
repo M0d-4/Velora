@@ -49,25 +49,20 @@ object MediaRepository {
                 val uri      = ContentUris.withAppendedId(collection, id)
                 val dataPath = cursor.getString(dataCol)
                 val lyricsFile = LyricsParser.findLyricsForMedia(dataPath)
-
-                // Album art URI via MediaStore
                 val albumArtUri = ContentUris.withAppendedId(
-                    Uri.parse("content://media/external/audio/albumart"), albumId
-                )
-
-                items.add(
-                    MediaItem(
-                        id          = id,
-                        uri         = uri,
-                        title       = cursor.getString(titleCol) ?: "Unknown",
-                        artist      = cursor.getString(artistCol) ?: "Unknown",
-                        album       = cursor.getString(albumCol) ?: "Unknown",
-                        duration    = cursor.getLong(durCol),
-                        mimeType    = cursor.getString(mimeCol) ?: "audio/*",
-                        albumArtUri = albumArtUri,
-                        lyricsPath  = lyricsFile?.absolutePath
-                    )
-                )
+                    Uri.parse("content://media/external/audio/albumart"), albumId)
+                val rawArtist = cursor.getString(artistCol) ?: ""
+                items.add(MediaItem(
+                    id          = id,
+                    uri         = uri,
+                    title       = cursor.getString(titleCol) ?: "Unknown",
+                    artist      = if (rawArtist.isBlank() || rawArtist == "<unknown>") "Unknown" else rawArtist,
+                    album       = cursor.getString(albumCol) ?: "",
+                    duration    = cursor.getLong(durCol),
+                    mimeType    = cursor.getString(mimeCol) ?: "audio/*",
+                    albumArtUri = albumArtUri,
+                    lyricsPath  = lyricsFile?.absolutePath
+                ))
             }
         }
         return items
@@ -100,27 +95,36 @@ object MediaRepository {
                 val dataPath = cursor.getString(dataCol)
                 val lyricsFile = LyricsParser.findLyricsForMedia(dataPath)
                 val thumbUri = Uri.parse("content://media/external/video/media/$id/thumbnail")
-                items.add(
-                    MediaItem(
-                        id           = id,
-                        uri          = uri,
-                        title        = cursor.getString(titleCol) ?: "Unknown",
-                        duration     = cursor.getLong(durCol),
-                        mimeType     = cursor.getString(mimeCol) ?: "video/*",
-                        thumbnailUri = thumbUri,
-                        lyricsPath   = lyricsFile?.absolutePath
-                    )
-                )
+                items.add(MediaItem(
+                    id           = id,
+                    uri          = uri,
+                    title        = cursor.getString(titleCol) ?: "Unknown",
+                    duration     = cursor.getLong(durCol),
+                    mimeType     = cursor.getString(mimeCol) ?: "video/*",
+                    thumbnailUri = thumbUri,
+                    lyricsPath   = lyricsFile?.absolutePath
+                ))
             }
         }
         return items
     }
 
+    /** "2:34" → shows as "2:34" • also returns a human unit suffix */
     fun formatDuration(ms: Long): String {
         val totalSec = ms / 1000
         val h = totalSec / 3600
         val m = (totalSec % 3600) / 60
         val s = totalSec % 60
         return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+    }
+
+    /** Returns "hrs", "mins", or "secs" label for display beside the duration */
+    fun durationUnit(ms: Long): String {
+        val totalSec = ms / 1000
+        return when {
+            totalSec >= 3600 -> "hrs"
+            totalSec >= 60   -> "mins"
+            else             -> "secs"
+        }
     }
 }

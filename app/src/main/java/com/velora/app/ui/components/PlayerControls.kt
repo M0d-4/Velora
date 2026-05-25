@@ -43,13 +43,10 @@ fun PlayerControls(
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         // Row 1: Shuffle + Queue
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             val shuffleInteraction = remember { MutableInteractionSource() }
             val shufflePressed by shuffleInteraction.collectIsPressedAsState()
             LiquidGlassSurface(cornerRadius = 20.dp, alpha = if (isShuffle) 0.32f else 0.12f,
@@ -61,18 +58,14 @@ fun PlayerControls(
                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
                 }
             }
-
             val queueInteraction = remember { MutableInteractionSource() }
             val queuePressed by queueInteraction.collectIsPressedAsState()
             LiquidGlassSurface(cornerRadius = 20.dp, alpha = if (isQueueMode) 0.32f else 0.12f,
                 modifier = Modifier.height(42.dp).wrapContentWidth().liquidPressEffect(queuePressed)) {
-                Row(
-                    modifier = Modifier
-                        .clickable(interactionSource = queueInteraction, indication = null, onClick = onQueueToggle)
-                        .padding(horizontal = 14.dp).fillMaxHeight(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
+                Row(modifier = Modifier
+                    .clickable(interactionSource = queueInteraction, indication = null, onClick = onQueueToggle)
+                    .padding(horizontal = 14.dp).fillMaxHeight(),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     Icon(Icons.Rounded.QueueMusic, null, modifier = Modifier.size(16.dp),
                         tint = if (isQueueMode) MaterialTheme.colorScheme.primary
                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
@@ -83,10 +76,14 @@ fun PlayerControls(
             }
         }
 
-        // Row 2: Rewind | Play/Pause | Forward  (no number icons)
+        // Row 2: [5s|10s|♥]  ABOVE  play button row
+        SkipAndHeartPill(skipSeconds = skipSeconds, isFavourite = isFavourite,
+            onSkipSecondsChange = onSkipSecondsChange, onFavouriteToggle = onFavouriteToggle)
+
+        // Row 3: Rewind | Play/Pause | Forward  (no number icons, mirrored arrows)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            // Rewind — plain Replay icon (no number)
-            SkipButton(icon = Icons.Rounded.Replay, desc = "Rewind", onClick = onSkipBackward)
+            // Rewind = mirrored FastForward icon
+            SkipButton(icon = Icons.Rounded.FastRewind, desc = "Rewind", onClick = onSkipBackward)
 
             val playInteraction = remember { MutableInteractionSource() }
             val playPressed by playInteraction.collectIsPressedAsState()
@@ -96,8 +93,7 @@ fun PlayerControls(
                     interactionSource = playInteraction) {
                     AnimatedContent(targetState = isPlaying,
                         transitionSpec = {
-                            scaleIn(initialScale = 0.65f) + fadeIn() togetherWith
-                                scaleOut(targetScale = 0.65f) + fadeOut()
+                            scaleIn(initialScale = 0.65f) + fadeIn() togetherWith scaleOut(targetScale = 0.65f) + fadeOut()
                         }, label = "playpause") { playing ->
                         Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                             null, modifier = Modifier.size(38.dp), tint = MaterialTheme.colorScheme.primary)
@@ -105,94 +101,64 @@ fun PlayerControls(
                 }
             }
 
-            // Forward — plain Forward icon (no number)
+            // Forward = FastForward (no number)
             SkipButton(icon = Icons.Rounded.FastForward, desc = "Forward", onClick = onSkipForward)
         }
-
-        // Row 3: [5s | 10s | ♥] unified pill
-        SkipAndHeartPill(
-            skipSeconds = skipSeconds,
-            isFavourite = isFavourite,
-            onSkipSecondsChange = onSkipSecondsChange,
-            onFavouriteToggle = onFavouriteToggle
-        )
     }
 }
 
 @Composable
 fun SkipAndHeartPill(
-    skipSeconds: Int,
-    isFavourite: Boolean,
-    onSkipSecondsChange: (Int) -> Unit,
-    onFavouriteToggle: () -> Unit
+    skipSeconds: Int, isFavourite: Boolean,
+    onSkipSecondsChange: (Int) -> Unit, onFavouriteToggle: () -> Unit
 ) {
     val heartScale = remember { Animatable(1f) }
     val scope = rememberCoroutineScope()
     val heartTint by animateColorAsState(
-        targetValue = if (isFavourite) Color(0xFFFF3B6B)
-                      else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-        animationSpec = tween(280), label = "heartColor"
-    )
+        targetValue = if (isFavourite) Color(0xFFFF3B6B) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+        animationSpec = tween(280), label = "heartColor")
 
     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.18f) {
-        Row(
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // 5s option
+        Row(modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically) {
             listOf(5, 10).forEach { secs ->
                 val isSelected = skipSeconds == secs
                 val interaction = remember { MutableInteractionSource() }
                 val pressed by interaction.collectIsPressedAsState()
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .then(if (isSelected) Modifier.background(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
-                            RoundedCornerShape(999.dp)) else Modifier)
-                        .clickable(interactionSource = interaction, indication = null) { onSkipSecondsChange(secs) }
-                        .graphicsLayer { val s = if (pressed) 0.88f else 1f; scaleX = s; scaleY = s }
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .then(if (isSelected) Modifier.background(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.22f), RoundedCornerShape(999.dp)) else Modifier)
+                    .clickable(interactionSource = interaction, indication = null) { onSkipSecondsChange(secs) }
+                    .graphicsLayer { val s = if (pressed) 0.88f else 1f; scaleX = s; scaleY = s }
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    contentAlignment = Alignment.Center) {
                     Text("${secs}s", fontSize = 13.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSelected) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 }
             }
-
-            // Divider
             Spacer(Modifier.width(2.dp))
-            Box(Modifier.width(1.dp).height(20.dp)
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)))
+            Box(Modifier.width(1.dp).height(20.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)))
             Spacer(Modifier.width(2.dp))
-
-            // Heart
             val heartInteraction = remember { MutableInteractionSource() }
             val heartPressed by heartInteraction.collectIsPressedAsState()
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .then(if (isFavourite) Modifier.background(
-                        Color(0xFFFF3B6B).copy(alpha = 0.14f), RoundedCornerShape(999.dp)) else Modifier)
-                    .clickable(interactionSource = heartInteraction, indication = null) {
-                        onFavouriteToggle()
-                        scope.launch {
-                            heartScale.animateTo(1.45f, tween(110, easing = FastOutSlowInEasing))
-                            heartScale.animateTo(1f, spring(stiffness = Spring.StiffnessHigh))
-                        }
+            Box(modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .then(if (isFavourite) Modifier.background(Color(0xFFFF3B6B).copy(alpha = 0.14f), RoundedCornerShape(999.dp)) else Modifier)
+                .clickable(interactionSource = heartInteraction, indication = null) {
+                    onFavouriteToggle()
+                    scope.launch {
+                        heartScale.animateTo(1.45f, tween(110, easing = FastOutSlowInEasing))
+                        heartScale.animateTo(1f, spring(stiffness = Spring.StiffnessHigh))
                     }
-                    .graphicsLayer { val s = if (heartPressed) 0.88f else 1f; scaleX = s; scaleY = s }
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (isFavourite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                    contentDescription = "Favorite",
-                    modifier = Modifier.size(18.dp).scale(heartScale.value),
-                    tint = heartTint
-                )
+                }
+                .graphicsLayer { val s = if (heartPressed) 0.88f else 1f; scaleX = s; scaleY = s }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+                contentAlignment = Alignment.Center) {
+                Icon(if (isFavourite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    "Favorite", modifier = Modifier.size(18.dp).scale(heartScale.value), tint = heartTint)
             }
         }
     }
@@ -211,7 +177,6 @@ fun SkipButton(icon: ImageVector, desc: String, onClick: () -> Unit) {
     }
 }
 
-// Video overlay heart (white tinted)
 @Composable
 fun HeartButton(isFavourite: Boolean, onToggle: () -> Unit) {
     val scale = remember { Animatable(1f) }
@@ -220,16 +185,12 @@ fun HeartButton(isFavourite: Boolean, onToggle: () -> Unit) {
     val pressed by interaction.collectIsPressedAsState()
     val tint by animateColorAsState(
         targetValue = if (isFavourite) Color(0xFFFF3B6B) else Color.White.copy(alpha = 0.55f),
-        animationSpec = tween(280), label = "heartColor"
-    )
+        animationSpec = tween(280), label = "heartColor")
     LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isFavourite) 0.30f else 0.18f,
         modifier = Modifier.size(34.dp).liquidPressEffect(pressed)) {
         IconButton(onClick = {
             onToggle()
-            scope.launch {
-                scale.animateTo(1.45f, tween(110))
-                scale.animateTo(1f, spring(stiffness = Spring.StiffnessHigh))
-            }
+            scope.launch { scale.animateTo(1.45f, tween(110)); scale.animateTo(1f, spring(stiffness = Spring.StiffnessHigh)) }
         }, modifier = Modifier.fillMaxSize(), interactionSource = interaction) {
             Icon(if (isFavourite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 "Favorite", modifier = Modifier.size(16.dp).scale(scale.value), tint = tint)

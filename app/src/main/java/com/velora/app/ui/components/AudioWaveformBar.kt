@@ -2,113 +2,120 @@ package com.velora.app.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.unit.dp
 
 /**
- * Waveform scrubber bar with interactive seek (tap + drag).
- * Bars animate smoothly with the actual playback progress.
+ * iOS 26-style waveform scrubber.
+ * - Tap anywhere to seek immediately.
+ * - Drag horizontally to scrub; onSeek fires only on release to avoid resetting.
+ * - While dragging the display shows the drag position live; the real progress
+ *   from the ViewModel is ignored until the finger lifts.
  */
 @Composable
 fun AudioWaveformBar(
     amplitudes: List<Float>,
-    progress: Float,          // 0..1
-    onSeek: (Float) -> Unit,  // called with 0..1 fraction
+    progress: Float,           // 0..1 from ViewModel
+    onSeek: (Float) -> Unit,   // only called on tap or drag-end
     modifier: Modifier = Modifier
 ) {
-    val primary = MaterialTheme.colorScheme.primary
-    val onSurface = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
+    val primary   = MaterialTheme.colorScheme.primary
+    val unfilled  = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
+    val thumb     = primary
 
-    // Animate each bar height
+    // Separate "interaction in progress" from real progress so the bar
+    // never jumps back to the ViewModel value mid-drag.
+    var isDragging   by remember { mutableStateOf(false) }
+    var dragFraction by remember { mutableFloatStateOf(0f) }
+    val displayProgress = if (isDragging) dragFraction else progress
+
+    // Smoothly animate each bar amplitude
     val animatedAmps = amplitudes.map { amp ->
-        val anim by animateFloatAsState(
-            targetValue = amp,
-            animationSpec = tween(durationMillis = 80, easing = LinearEasing),
-            label = "bar"
-        )
-        anim
+        val v by animateFloatAsState(amp, tween(80, easing = LinearEasing), label = "amp")
+        v
     }
-
-    // Track drag state locally so scrubber preview is smooth
-    var dragging by remember { mutableStateOf(false) }
-    var dragProgress by remember { mutableFloatStateOf(progress) }
-    val displayProgress = if (dragging) dragProgress else progress
 
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .height(72.dp)
+            .height(64.dp)
             .pointerInput(Unit) {
-                detectTapGestures { offset ->
-                    val fraction = (offset.x / size.width).coerceIn(0f, 1f)
-                    onSeek(fraction)
+                awaitEachGesture {
+                    // Wait for the first finger down
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val startFrac = (down.position.x / size.width).coerceIn(0f, 1f)
+                    isDragging   = true
+                    dragFraction = startFrac
+
+                    var hasMoved = false
+                    // Track subsequent moves
+                    do {
+                        val event = awaitPointerEvent()
+                        val pointer = event.changes.firstOrNull() ?: break
+                        if (pointer.pressed) {
+                            val frac = (pointer.position.x / size.width).coerceIn(0f, 1f)
+                            dragFraction = frac
+                            hasMoved = true
+                            pointer.consume()
+                        } else {
+                            break
+                        }
+                    } while (true)
+
+                    // Finger lifted — commit seek
+                    isDragging = false
+                    onSeek(dragFraction)
                 }
             }
-            .pointerInput(Unit) {
-                detectHorizontalDragGestures(
-                    onDragStart = { dragging = true },
-                    onDragEnd = {
-                        dragging = false
-                        onSeek(dragProgress)
-                    },
-                    onDragCancel = { dragging = false },
-                    onHorizontalDrag = { change, _ ->
-                        dragProgress = (change.position.x / size.width).coerceIn(0f, 1f)
-                    }
-                )
-            }
     ) {
-        val barCount = amplitudes.size
-        val totalWidth = size.width
-        val totalHeight = size.height
-        val gap = totalWidth * 0.008f
-        val barWidth = (totalWidth - gap * (barCount - 1)) / barCount
-        val progressX = totalWidth * displayProgress
+        val count      = amplitudes.size
+        val w          = size.width
+        val h          = size.height
+        val gap        = w * 0.006f
+        val barW       = (w - gap * (count - 1)) / count
+        val progressX  = w * displayProgress
 
         animatedAmps.forEachIndexed { i, amp ->
-            val x = i * (barWidth + gap)
-            val barH = (totalHeight * 0.15f) + (totalHeight * 0.80f * amp)
-            val top = (totalHeight - barH) / 2f
+            val x    = i * (barW + gap)
+            val barH = (h * 0.12f) + (h * 0.82f * amp.coerceIn(0.04f, 1f))
+            val top  = (h - barH) / 2f
+            val cx   = x + barW / 2f
 
-            val isFilled = (x + barWidth / 2f) <= progressX
-            val isEdge = !isFilled && (x + barWidth / 2f) <= progressX + barWidth * 2
-
+            // Colour: filled (before thumb) → gradient edge → unfilled
+            val distFromThumb = cx - progressX
             val color = when {
-                isFilled -> primary
-                isEdge -> Color(
-                    red = (primary.red * 0.6f + onSurface.red * 0.4f),
-                    green = (primary.green * 0.6f + onSurface.green * 0.4f),
-                    blue = (primary.blue * 0.6f + onSurface.blue * 0.4f),
-                    alpha = 1f
-                )
-                else -> onSurface
+                cx <= progressX                   -> primary
+                distFromThumb <= barW * 3         -> lerp(primary, unfilled, distFromThumb / (barW * 3))
+                else                              -> unfilled
             }
 
             drawRoundRect(
-                color = color,
-                topLeft = Offset(x, top),
-                size = Size(barWidth, barH),
-                cornerRadius = CornerRadius(barWidth / 2f)
+                color     = color,
+                topLeft   = Offset(x, top),
+                size      = Size(barW, barH),
+                cornerRadius = CornerRadius(barW / 2f)
             )
         }
 
-        // Draw scrubber thumb at current position
-        val thumbX = totalWidth * displayProgress
-        drawCircle(
-            color = primary,
-            radius = 6f,
-            center = Offset(thumbX.coerceIn(6f, totalWidth - 6f), totalHeight / 2f)
-        )
+        // iOS-style thumb: larger glowing circle
+        val thumbX = (w * displayProgress).coerceIn(8f, w - 8f)
+        // Glow
+        drawCircle(color = primary.copy(alpha = 0.25f), radius = 14f,
+            center = Offset(thumbX, h / 2f))
+        // Solid thumb
+        drawCircle(color = thumb, radius = 7f,
+            center = Offset(thumbX, h / 2f))
     }
 }

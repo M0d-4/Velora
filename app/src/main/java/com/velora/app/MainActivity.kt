@@ -21,6 +21,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import coil.compose.AsyncImage
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -94,9 +98,15 @@ fun VeloraApp(
     val pagerState = rememberPagerState(pageCount = { 3 })
 
     // Permissions
-    val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-        arrayOf(Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.READ_MEDIA_VIDEO)
-    else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    val permissions = buildList {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            add(Manifest.permission.READ_MEDIA_AUDIO)
+            add(Manifest.permission.READ_MEDIA_VIDEO)
+            add(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+    }.toTypedArray()
     var hasPermission by remember {
         mutableStateOf(permissions.all {
             ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
@@ -180,7 +190,9 @@ fun VeloraApp(
                             isFavourite = viewModel::isFavourite,
                             onMergePlaylists = viewModel::mergePlaylists,
                             onDeletePlaylist = viewModel::deletePlaylist,
+                            onRenamePlaylist = viewModel::renamePlaylist,
                             onAddToPlaylist = viewModel::addToPlaylist,
+                            onRemoveImported = viewModel::removeImportedMedia,
                             nonFavPlaylists = state.playlists.filter { !it.isFavourites }
                         )
                     } else PermissionPrompt { permissionLauncher.launch(permissions) }
@@ -278,16 +290,8 @@ fun VeloraApp(
                 }
             }
 
-            // Version text
-            AnimatedVisibility(
-                visible = showVersionText,
-                enter = fadeIn(tween(300)), exit = fadeOut(tween(300)),
-                modifier = Modifier.align(Alignment.BottomCenter)
-                    .padding(bottom = if (!isVideoFullscreen) 76.dp else 6.dp).fillMaxWidth()
-            ) {
-                Text("Velora v$APP_VERSION", fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(0.28f), textAlign = TextAlign.Center)
-            }
+            // Version text — hidden from bottom bar per user request
+            // (version is visible in Settings → About)
         }
     }
 }
@@ -358,26 +362,48 @@ private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClick: () 
     LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.25f,
         modifier = Modifier.fillMaxWidth().liquidPressEffect(pressed)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(12.dp),
+        Row(modifier = Modifier.fillMaxWidth().padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween) {
-            Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                Text(item.title, style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold, maxLines = 1, color = MaterialTheme.colorScheme.onSurface)
-                Text(item.artist, style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(0.6f), maxLines = 1)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Thumbnail
+            Box(modifier = Modifier.size(44.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(0.4f)),
+                contentAlignment = Alignment.Center) {
+                val art = item.artUri
+                if (art != null) {
+                    AsyncImage(model = art, contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize())
+                } else {
+                    Icon(if (item.isVideo) Icons.Rounded.Videocam else Icons.Rounded.MusicNote,
+                        null, modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(0.7f))
+                }
             }
+            // Title + artist (2 lines for title)
+            Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                Text(item.title, style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold, maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface, lineHeight = 15.sp)
+                if (item.artist.isNotBlank() && item.artist != "Unknown") {
+                    Text(item.artist, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(0.6f), maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
+                }
+            }
+            // Progress + play button
             val progress = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f
-            LinearProgressIndicator(progress = { progress }, modifier = Modifier.width(56.dp).height(3.dp),
+            LinearProgressIndicator(progress = { progress }, modifier = Modifier.width(44.dp).height(3.dp),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.primaryContainer.copy(0.4f))
-            Spacer(Modifier.width(10.dp))
             val playInteraction = remember { MutableInteractionSource() }
             val playPressed by playInteraction.collectIsPressedAsState()
             Box(Modifier.liquidPressEffect(playPressed)) {
                 IconButton(onClick = onPlayPause, interactionSource = playInteraction) {
                     Icon(if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                        null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
                 }
             }
         }
