@@ -486,10 +486,6 @@ private fun NothingPlayingPlaceholder(onBrowse: () -> Unit) {
     }
 }
 
-// ── ZIP import: playlist choice dialog ────────────────────────────────────────
-
-
-// ── ZIP import: playlist choice dialog ────────────────────────────────────────
 
 @Composable
 private fun ZipImportDialog(
@@ -586,5 +582,4 @@ private fun ZipImportDialog(
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
-}
 }
