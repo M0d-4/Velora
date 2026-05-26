@@ -60,6 +60,13 @@ fun SettingsScreen(
                 }
             }
 
+            SettingsSectionHeader("Playback")
+            LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.14f, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    SettingsInfoRow(Icons.Rounded.Speed, "Playback Speeds", "0.5× – 2×")
+                }
+            }
+
             SettingsSectionHeader("About")
             LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.14f, modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(vertical = 4.dp)) {
@@ -68,17 +75,12 @@ fun SettingsScreen(
                     SettingsInfoRow(Icons.Rounded.MusicNote, "App Name",    "Velora")
                     SettingsDivider()
                     SettingsInfoRow(Icons.Rounded.Android,   "Build",       "Release")
-                }
-            }
-
-            SettingsSectionHeader("Playback")
-            LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.14f, modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                    SettingsInfoRow(Icons.Rounded.GraphicEq, "Waveform",          "Real-time audio")
                     SettingsDivider()
-                    SettingsInfoRow(Icons.Rounded.Speed,     "Playback Speeds",   "0.5× – 2×")
+                    SettingsInfoRow(Icons.Rounded.Lyrics,    "Lyrics Formats", ".lrc · .srt")
                     SettingsDivider()
-                    SettingsInfoRow(Icons.Rounded.Lyrics,    "Lyrics Formats",    ".lrc · .srt")
+                    SettingsInfoRow(Icons.Rounded.AudioFile, "Audio Formats", "mp3 · flac · ogg · m4a · aac · wav")
+                    SettingsDivider()
+                    SettingsInfoRow(Icons.Rounded.VideoFile, "Video Formats", "mp4 · mkv · avi · webm")
                 }
             }
 
@@ -115,12 +117,16 @@ private fun SettingsToggleRow(
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled,
             colors = SwitchDefaults.colors(
-                checkedThumbColor          = Color.White,
-                checkedTrackColor          = if (alwaysGreen) SwitchGreen else MaterialTheme.colorScheme.primary,
-                uncheckedThumbColor        = Color.White,
-                uncheckedTrackColor        = MaterialTheme.colorScheme.onSurface.copy(0.22f),
-                disabledCheckedTrackColor  = if (alwaysGreen) SwitchGreen.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary.copy(0.5f),
-                disabledUncheckedTrackColor = MaterialTheme.colorScheme.onSurface.copy(0.12f)
+                checkedThumbColor           = Color.White,
+                checkedTrackColor           = if (alwaysGreen) SwitchGreen else MaterialTheme.colorScheme.primary,
+                checkedBorderColor          = if (alwaysGreen) SwitchGreen else MaterialTheme.colorScheme.primary,
+                uncheckedThumbColor         = Color.White,
+                uncheckedTrackColor         = MaterialTheme.colorScheme.onSurface.copy(0.22f),
+                uncheckedBorderColor        = MaterialTheme.colorScheme.onSurface.copy(0.22f),
+                disabledCheckedTrackColor   = if (alwaysGreen) SwitchGreen.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary.copy(0.5f),
+                disabledCheckedBorderColor  = if (alwaysGreen) SwitchGreen.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary.copy(0.5f),
+                disabledUncheckedTrackColor = MaterialTheme.colorScheme.onSurface.copy(0.12f),
+                disabledUncheckedBorderColor = MaterialTheme.colorScheme.onSurface.copy(0.12f)
             ))
     }
 }
@@ -136,7 +142,8 @@ private fun SettingsInfoRow(icon: ImageVector, title: String, value: String) {
         }
         Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(0.55f))
+        Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.55f),
+            modifier = Modifier.widthIn(max = 180.dp))
     }
 }
 

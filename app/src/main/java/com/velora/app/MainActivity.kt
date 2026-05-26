@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -47,6 +48,7 @@ import androidx.media3.session.SessionToken
 import com.velora.app.ui.components.LiquidGlassSurface
 import com.velora.app.ui.components.liquidPressEffect
 import com.velora.app.ui.screens.*
+import com.velora.app.model.ZipPlaylistMode
 import com.velora.app.ui.theme.VeloraTheme
 import kotlinx.coroutines.launch
 
@@ -129,8 +131,10 @@ fun VeloraApp(
         onDispose { MediaController.releaseFuture(future) }
     }
 
+    // ZIP import: show dialog to choose playlist option
+    var pendingZipUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val zipPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent())
-        { uri -> uri?.let { viewModel.importZip(it) } }
+        { uri -> if (uri != null) pendingZipUri = uri }
     val lyricsPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent())
         { uri -> uri?.let { viewModel.importLyricsFile(it) } }
 
@@ -141,8 +145,12 @@ fun VeloraApp(
 
     val selectedTab = pagerState.currentPage
     val isVideoPlayer = selectedTab == 1 && state.currentItem?.isVideo == true
-    val showVersionText = !isVideoPlayer || !state.isPlaying
+    val isAudioPlayer = selectedTab == 1 && state.currentItem?.isVideo == false
     val isVideoFullscreen = isVideoPlayer && state.isLandscape
+    val isAudioLandscape = isAudioPlayer && state.isLandscape
+
+    // Audio player controls auto-hide state (shared so bottom nav can hide too)
+    var audioBottomBarVisible by remember { mutableStateOf(true) }
 
     val onRotate: () -> Unit = {
         val landscape = !state.isLandscape
@@ -158,6 +166,33 @@ fun VeloraApp(
         state.zipImportMessage?.let { snackbarHostState.showSnackbar(it); viewModel.clearZipMessage() }
     }
 
+    // ZIP import dialog — resolve the display name so it can be pre-filled
+    pendingZipUri?.let { uri ->
+        val zipDisplayName = remember(uri) {
+            val cursor = context.contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                val idx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (it.moveToFirst() && idx >= 0) it.getString(idx)?.substringBeforeLast('.') ?: "" else ""
+            }.takeIf { !it.isNullOrBlank() }
+                ?: uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.')
+                ?: "ZIP Import"
+        }
+        ZipImportDialog(
+            playlists = state.playlists.filter { !it.isFavourites },
+            defaultName = zipDisplayName,
+            onCreateNew = { customName ->
+                viewModel.importZip(uri, playlistMode = ZipPlaylistMode.NEW, customPlaylistName = customName)
+                pendingZipUri = null
+            },
+            onAddToExisting = { playlistId ->
+                viewModel.importZip(uri, playlistMode = ZipPlaylistMode.EXISTING, existingPlaylistId = playlistId)
+                pendingZipUri = null
+            },
+            onNoPlaylist = { viewModel.importZip(uri, playlistMode = ZipPlaylistMode.NONE); pendingZipUri = null },
+            onDismiss = { pendingZipUri = null }
+        )
+    }
+
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, containerColor = Color.Transparent) { innerPadding ->
         Box(modifier = Modifier
             .fillMaxSize()
@@ -167,8 +202,8 @@ fun VeloraApp(
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
-                    .padding(bottom = if (isVideoFullscreen) 0.dp else 72.dp),
-                userScrollEnabled = !isVideoFullscreen
+                    .padding(bottom = if (isVideoFullscreen || isAudioLandscape) 0.dp else 72.dp),
+                userScrollEnabled = !isVideoFullscreen && !isAudioLandscape
             ) { page ->
                 when (page) {
                     0 -> if (hasPermission) {
@@ -209,10 +244,13 @@ fun VeloraApp(
                             onSeek = viewModel::seekTo,
                             onSkipSecondsChange = viewModel::setSkipSeconds,
                             onImportLyrics = { lyricsPicker.launch("*/*") },
+                            onRemoveLyrics = viewModel::removeLyrics,
                             onFavouriteToggle = { state.currentItem?.let { viewModel.toggleFavourite(it) } },
                             onShuffleToggle = viewModel::toggleShuffle,
                             onQueueToggle = viewModel::toggleQueueMode,
                             onSpeedChange = viewModel::setPlaybackSpeed,
+                            onPlayNext = viewModel::playNext,
+                            onPlayPrev = viewModel::playPrev,
                             isFavourite = state.currentItem?.let { viewModel.isFavourite(it) } ?: false,
                             onRotate = onRotate
                         )
@@ -224,10 +262,13 @@ fun VeloraApp(
                             onSeek = viewModel::seekTo,
                             onSkipSecondsChange = viewModel::setSkipSeconds,
                             onImportLyrics = { lyricsPicker.launch("*/*") },
+                            onRemoveLyrics = viewModel::removeLyrics,
                             onFavouriteToggle = { state.currentItem?.let { viewModel.toggleFavourite(it) } },
                             onShuffleToggle = viewModel::toggleShuffle,
                             onQueueToggle = viewModel::toggleQueueMode,
                             onSpeedChange = viewModel::setPlaybackSpeed,
+                            onPlayNext = viewModel::playNext,
+                            onPlayPrev = viewModel::playPrev,
                             isFavourite = state.currentItem?.let { viewModel.isFavourite(it) } ?: false,
                             onRotate = onRotate
                         )
@@ -240,21 +281,22 @@ fun VeloraApp(
                 }
             }
 
-            // Mini player on library tab
+            // Mini player — sits just above the bottom nav with correct gap
             AnimatedVisibility(
                 visible = selectedTab == 0 && state.currentItem != null,
                 enter = slideInVertically { it } + fadeIn(),
                 exit  = slideOutVertically { it } + fadeOut(),
                 modifier = Modifier.align(Alignment.BottomCenter)
-                    .padding(bottom = 72.dp, start = 12.dp, end = 12.dp)
+                    .padding(bottom = 80.dp, start = 12.dp, end = 12.dp)
             ) {
                 MiniPlayer(state = state, onPlayPause = viewModel::togglePlayPause,
                     onClick = { scope.launch { pagerState.animateScrollToPage(1) } })
             }
 
-            // Bottom nav
+            // Bottom nav — also hidden when video fullscreen OR audio landscape OR audio auto-hides
+            val showBottomNav = !isVideoFullscreen && !isAudioLandscape
             AnimatedVisibility(
-                visible = !isVideoFullscreen,
+                visible = showBottomNav,
                 enter = slideInVertically { it } + fadeIn(),
                 exit  = slideOutVertically { it } + fadeOut(),
                 modifier = Modifier.align(Alignment.BottomCenter)
@@ -332,8 +374,11 @@ private fun NavItem(
     val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.5f)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(horizontal = 10.dp).liquidPressEffect(pressed)) {
-        IconButton(onClick = onClick, modifier = Modifier.size(40.dp), interactionSource = interaction) {
+        modifier = Modifier
+            .padding(horizontal = 10.dp)
+            .liquidPressEffect(pressed)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)) {
+        Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
             Box {
                 Icon(icon, label, tint = color, modifier = Modifier.size(22.dp))
                 if (badge && !selected) {
@@ -439,4 +484,107 @@ private fun NothingPlayingPlaceholder(onBrowse: () -> Unit) {
             TextButton(onClick = onBrowse) { Text("Browse Library") }
         }
     }
+}
+
+// ── ZIP import: playlist choice dialog ────────────────────────────────────────
+
+
+// ── ZIP import: playlist choice dialog ────────────────────────────────────────
+
+@Composable
+private fun ZipImportDialog(
+    playlists: List<com.velora.app.model.Playlist>,
+    defaultName: String,
+    onCreateNew: (String) -> Unit,
+    onAddToExisting: (Long) -> Unit,
+    onNoPlaylist: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var showNameField by remember { mutableStateOf(false) }
+    var playlistName by remember(defaultName) { mutableStateOf(defaultName) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Import ZIP") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("How would you like to import these files?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(0.7f))
+                Spacer(Modifier.height(4.dp))
+
+                // Create new playlist
+                if (!showNameField) {
+                    FilledTonalButton(onClick = { showNameField = true }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Rounded.PlaylistAdd, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Create new playlist")
+                    }
+                } else {
+                    LiquidGlassSurface(cornerRadius = 16.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Playlist name", style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary)
+                            OutlinedTextField(
+                                value = playlistName,
+                                onValueChange = { playlistName = it },
+                                singleLine = true,
+                                placeholder = { Text(defaultName, color = MaterialTheme.colorScheme.onSurface.copy(0.4f)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(0.25f)
+                                ),
+                                trailingIcon = {
+                                    if (playlistName != defaultName) {
+                                        IconButton(onClick = { playlistName = defaultName }, modifier = Modifier.size(32.dp)) {
+                                            Icon(Icons.Rounded.Refresh, "Reset to zip name",
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.onSurface.copy(0.5f))
+                                        }
+                                    }
+                                }
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = { showNameField = false }, modifier = Modifier.weight(1f)) {
+                                    Text("Back")
+                                }
+                                Button(
+                                    onClick = { onCreateNew(playlistName.trim().ifBlank { defaultName }) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Create")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Add to existing
+                if (playlists.isNotEmpty() && !showNameField) {
+                    Text("Or add to existing:", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(0.5f),
+                        modifier = Modifier.padding(top = 4.dp))
+                    playlists.forEach { pl ->
+                        OutlinedButton(onClick = { onAddToExisting(pl.id) }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Rounded.PlaylistPlay, null, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(pl.name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+
+                // No playlist
+                if (!showNameField) {
+                    TextButton(onClick = onNoPlaylist, modifier = Modifier.fillMaxWidth()) {
+                        Text("Import without playlist", color = MaterialTheme.colorScheme.onSurface.copy(0.6f))
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
 }

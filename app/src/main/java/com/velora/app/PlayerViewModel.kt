@@ -286,8 +286,15 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun playPrev() = advanceQueue(false)
     private fun advanceQueue(forward: Boolean = true) {
         val s = _state.value; if (!s.isQueueMode || s.queue.isEmpty()) return
-        val nextIdx = if (forward) { if (s.isShuffle) s.queue.indices.random() else (s.queueIndex + 1) % s.queue.size }
-                      else { if (s.queueIndex > 0) s.queueIndex - 1 else s.queue.size - 1 }
+        val nextIdx = if (forward) {
+            if (s.isShuffle) {
+                // Pick a random index that is NOT the current one (if queue has > 1 item)
+                val candidates = s.queue.indices.filter { it != s.queueIndex }
+                if (candidates.isEmpty()) s.queueIndex else candidates.random()
+            } else (s.queueIndex + 1) % s.queue.size
+        } else {
+            if (s.queueIndex > 0) s.queueIndex - 1 else s.queue.size - 1
+        }
         val nextItem = s.queue.getOrNull(nextIdx) ?: return
         _state.update { it.copy(queueIndex = nextIdx) }; playItem(nextItem)
     }
@@ -358,11 +365,29 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── ZIP import ─────────────────────────────────────────────────────────────
 
-    fun importZip(uri: Uri) {
+    fun importZip(
+        uri: Uri,
+        playlistMode: com.velora.app.model.ZipPlaylistMode = com.velora.app.model.ZipPlaylistMode.NEW,
+        existingPlaylistId: Long? = null,
+        customPlaylistName: String? = null
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val ctx = getApplication<Application>()
-                val zipName = uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.') ?: "ZIP Import"
+                // Resolve the real display name from the content resolver if possible
+                val zipName = run {
+                    val cursor = ctx.contentResolver.query(uri, null, null, null, null)
+                    cursor?.use {
+                        val idx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        if (it.moveToFirst() && idx >= 0) it.getString(idx)
+                            ?.substringBeforeLast('.') ?: ""
+                        else ""
+                    }.takeIf { !it.isNullOrBlank() }
+                        ?: uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.')
+                        ?: "ZIP Import"
+                }
+                // Use custom name if provided (from dialog), else fall back to zip filename
+                val playlistName = customPlaylistName?.trim()?.ifBlank { null } ?: zipName
                 val outDir = File(ctx.filesDir, "zip_${zipName.replace("[^a-zA-Z0-9]".toRegex(), "_")}").also { it.mkdirs() }
                 val importedItems = mutableListOf<MediaItem>()
 
@@ -379,10 +404,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                                 val mime = if (isVideo) "video/$ext" else "audio/$ext"
                                 val lyricsFile = LyricsParser.findLyricsForMedia(outFile.absolutePath)
                                 val itemId = outFile.absolutePath.hashCode().toLong()
-
-                                // Extract metadata from the file using MediaMetadataRetriever
                                 val (title, artist, albumArtUri) = extractMetadata(outFile, name, zipName, ctx)
-
                                 importedItems.add(MediaItem(
                                     id = itemId, uri = Uri.fromFile(outFile),
                                     title = title, artist = artist, album = zipName,
@@ -396,19 +418,47 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
 
-                if (importedItems.isEmpty()) { _state.update { it.copy(zipImportMessage = "No media files found in ZIP") }; return@launch }
+                if (importedItems.isEmpty()) {
+                    _state.update { it.copy(zipImportMessage = "No media files found in ZIP") }
+                    return@launch
+                }
 
-                // Playlist named after the ZIP file
-                val playlist = Playlist(id = System.currentTimeMillis(), name = zipName, itemIds = importedItems.map { it.id })
-                _state.update { s -> s.copy(
-                    mediaList = s.mediaList + importedItems,
-                    extraMediaList = s.extraMediaList + importedItems,
-                    playlists = s.playlists + playlist,
-                    zipImportedItems = importedItems,
-                    zipImportMessage = "Imported ${importedItems.size} file(s) → playlist \"$zipName\""
-                ) }
+                _state.update { s ->
+                    val newPlaylists = when (playlistMode) {
+                        com.velora.app.model.ZipPlaylistMode.NEW -> {
+                            val pl = Playlist(id = System.currentTimeMillis(), name = playlistName, itemIds = importedItems.map { it.id })
+                            s.playlists + pl
+                        }
+                        com.velora.app.model.ZipPlaylistMode.EXISTING -> {
+                            s.playlists.map { pl ->
+                                if (pl.id == existingPlaylistId) pl.copy(itemIds = pl.itemIds + importedItems.map { it.id })
+                                else pl
+                            }
+                        }
+                        com.velora.app.model.ZipPlaylistMode.NONE -> s.playlists
+                    }
+                    val msg = when (playlistMode) {
+                        com.velora.app.model.ZipPlaylistMode.NEW -> "Imported ${importedItems.size} file(s) → playlist \"$playlistName\""
+                        com.velora.app.model.ZipPlaylistMode.EXISTING -> "Imported ${importedItems.size} file(s) into playlist"
+                        com.velora.app.model.ZipPlaylistMode.NONE -> "Imported ${importedItems.size} file(s)"
+                    }
+                    s.copy(
+                        mediaList = s.mediaList + importedItems,
+                        extraMediaList = s.extraMediaList + importedItems,
+                        playlists = newPlaylists,
+                        zipImportedItems = importedItems,
+                        zipImportMessage = msg
+                    )
+                }
                 persistData()
             } catch (e: Exception) { _state.update { it.copy(zipImportMessage = "Failed to read ZIP: ${e.message}") } }
+        }
+    }
+
+    fun removeLyrics() {
+        _state.update { s ->
+            val updatedItem = s.currentItem?.copy(lyricsPath = null) ?: return
+            s.copy(currentItem = updatedItem, lyrics = emptyList(), activeLyricIndex = -1)
         }
     }
 

@@ -4,6 +4,8 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -19,6 +21,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,7 +68,8 @@ fun PlayerControls(
                 Row(modifier = Modifier
                     .clickable(interactionSource = queueInteraction, indication = null, onClick = onQueueToggle)
                     .padding(horizontal = 14.dp).fillMaxHeight(),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     Icon(Icons.Rounded.QueueMusic, null, modifier = Modifier.size(16.dp),
                         tint = if (isQueueMode) MaterialTheme.colorScheme.primary
                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
@@ -76,13 +80,12 @@ fun PlayerControls(
             }
         }
 
-        // Row 2: [5s|10s|♥]  ABOVE  play button row
+        // Row 2: [5s | 10s | ♥]
         SkipAndHeartPill(skipSeconds = skipSeconds, isFavourite = isFavourite,
             onSkipSecondsChange = onSkipSecondsChange, onFavouriteToggle = onFavouriteToggle)
 
-        // Row 3: Rewind | Play/Pause | Forward  (no number icons, mirrored arrows)
+        // Row 3: Rewind | Play/Pause | Forward
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            // Rewind = mirrored FastForward icon
             SkipButton(icon = Icons.Rounded.FastRewind, desc = "Rewind", onClick = onSkipBackward)
 
             val playInteraction = remember { MutableInteractionSource() }
@@ -101,7 +104,6 @@ fun PlayerControls(
                 }
             }
 
-            // Forward = FastForward (no number)
             SkipButton(icon = Icons.Rounded.FastForward, desc = "Forward", onClick = onSkipForward)
         }
     }
@@ -119,17 +121,23 @@ fun SkipAndHeartPill(
         animationSpec = tween(280), label = "heartColor")
 
     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.18f) {
-        Row(modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier
+                // Consume horizontal drags so swiping inside the pill doesn't trigger tab switch
+                .pointerInput(Unit) { detectHorizontalDragGestures { _, _ -> /* consume */ } }
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             listOf(5, 10).forEach { secs ->
                 val isSelected = skipSeconds == secs
+                // Animated highlight
+                val bgAlpha by animateFloatAsState(if (isSelected) 0.22f else 0f, tween(200), label = "skipbg_$secs")
                 val interaction = remember { MutableInteractionSource() }
                 val pressed by interaction.collectIsPressedAsState()
                 Box(modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .then(if (isSelected) Modifier.background(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.22f), RoundedCornerShape(999.dp)) else Modifier)
-                    .clickable(interactionSource = interaction, indication = null) { onSkipSecondsChange(secs) }
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = bgAlpha), RoundedCornerShape(999.dp))
+                    .pointerInput(Unit) { detectTapGestures { onSkipSecondsChange(secs) } }
                     .graphicsLayer { val s = if (pressed) 0.88f else 1f; scaleX = s; scaleY = s }
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                     contentAlignment = Alignment.Center) {
