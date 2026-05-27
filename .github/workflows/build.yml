@@ -5,7 +5,9 @@ name: Velora CI/CD
 #
 # Push to main/develop        → lint + test + build SIGNED release APK + publish BETA pre-release
 # Pull request to main        → lint + test + build debug APK only (no publish)
-# workflow_dispatch (manual)  → lint + test + build SIGNED release APK + AAB + publish RELEASE
+# workflow_dispatch (manual)  → lint + test + build SIGNED release APK + AAB
+#                               release_type = "release" → publish official release
+#                               release_type = "beta"    → publish beta pre-release
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
@@ -20,8 +22,16 @@ on:
 
   workflow_dispatch:
     inputs:
+      release_type:
+        description: 'What kind of release to publish?'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - beta
       version_override:
-        description: 'Release version (e.g. 1.1.1). Leave blank to read from app/build.gradle.'
+        description: 'Version name (e.g. 1.2.0). Leave blank to read from app/build.gradle.'
         required: false
         default: ''
 
@@ -184,8 +194,8 @@ jobs:
       - name: Build signed release APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS:         ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD:      ${{ secrets.KEY_PASSWORD }}
         run: |
           ./gradlew assembleRelease \
             -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/app/velora-release.jks" \
@@ -194,14 +204,13 @@ jobs:
             -Pandroid.injected.signing.key.password="$KEY_PASSWORD" \
             --stacktrace
 
-      # AAB is only needed for the full manual release, but build it always
-      # so the artifact is available if needed. Skipped on push to save time.
+      # AAB only for manual dispatch (Play Store upload)
       - name: Build release AAB (Play Store)
         if: github.event_name == 'workflow_dispatch'
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS:         ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD:      ${{ secrets.KEY_PASSWORD }}
         run: |
           ./gradlew bundleRelease \
             -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/app/velora-release.jks" \
@@ -227,7 +236,6 @@ jobs:
           mkdir -p artifacts
           cp app/build/outputs/apk/release/app-release.apk \
              "artifacts/Velora-v${VER}-release-${SHORT_SHA}.apk"
-          # AAB only exists on manual dispatch
           if [ -f app/build/outputs/bundle/release/app-release.aab ]; then
             cp app/build/outputs/bundle/release/app-release.aab \
                "artifacts/Velora-v${VER}.aab"
@@ -253,15 +261,16 @@ jobs:
         run: rm -f "$GITHUB_WORKSPACE/app/velora-release.jks"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# JOB 4 — PUBLISH BETA  (auto, every successful push to main/develop)
-#          Uses the signed release APK from job 3
+# JOB 4 — PUBLISH BETA  (auto on push  OR  manual with release_type = "beta")
 # ─────────────────────────────────────────────────────────────────────────────
   publish-beta:
     name: Publish Beta Release
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: build-signed
-    if: github.event_name == 'push'
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.release_type == 'beta')
     permissions:
       contents: write
 
@@ -282,9 +291,15 @@ jobs:
           SHORT_SHA="${GITHUB_SHA:0:7}"
           BRANCH_SAFE="${{ github.ref_name }}"
           BRANCH_SAFE="${BRANCH_SAFE//\//-}"
-          TAG="beta-${BRANCH_SAFE}-${SHORT_SHA}"
-          echo "tag=${TAG}"           >> "$GITHUB_OUTPUT"
-          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          # Manual beta triggers include the version in the tag so they're easy to find
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VER="${{ needs.build-signed.outputs.version || inputs.version_override }}"
+            TAG="beta-v${VER:-manual}-${SHORT_SHA}"
+          else
+            TAG="beta-${BRANCH_SAFE}-${SHORT_SHA}"
+          fi
+          echo "tag=${TAG}"               >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}"   >> "$GITHUB_OUTPUT"
           echo "branch_safe=${BRANCH_SAFE}" >> "$GITHUB_OUTPUT"
 
       - name: Generate commit list since last beta
@@ -321,7 +336,8 @@ jobs:
           body: |
             ## Velora Beta Build
 
-            > **Automated beta build** from commit `${{ github.sha }}` on `${{ github.ref_name }}`.
+            > **${{ github.event_name == 'workflow_dispatch' && '🔧 Manually triggered beta' || '🤖 Automated beta build' }}**
+            > Commit `${{ github.sha }}` on `${{ github.ref_name }}`.
             > Built with the signed release keystore. May contain incomplete features or bugs.
 
             ### Commits in this build
@@ -334,15 +350,14 @@ jobs:
           files: beta-artifacts/*.apk
 
 # ─────────────────────────────────────────────────────────────────────────────
-# JOB 5 — PUBLISH RELEASE  (manual workflow_dispatch only)
-#          Uses the signed APK + AAB from job 3
+# JOB 5 — PUBLISH RELEASE  (manual workflow_dispatch with release_type = "release")
 # ─────────────────────────────────────────────────────────────────────────────
   publish-release:
     name: Publish Official Release
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: build-signed
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'release'
     permissions:
       contents: write
 
