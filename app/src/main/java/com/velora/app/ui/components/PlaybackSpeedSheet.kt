@@ -38,7 +38,8 @@ fun PlaybackSpeedControl(
     currentSpeed: Float,
     onSpeedChange: (Float) -> Unit,
     isVideoOverlay: Boolean = false,
-    onExpandedChange: ((Boolean) -> Unit)? = null
+    onExpandedChange: ((Boolean) -> Unit)? = null,
+    onDismissRequest: (() -> Unit)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
 

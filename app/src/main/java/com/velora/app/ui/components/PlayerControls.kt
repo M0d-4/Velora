@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
+// ── PlayerControls ────────────────────────────────────────────────────────────
 @Composable
 fun PlayerControls(
     isPlaying: Boolean,
@@ -50,26 +52,31 @@ fun PlayerControls(
     ) {
         // Row 1: Shuffle + Queue
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            val shuffleInteraction = remember { MutableInteractionSource() }
-            val shufflePressed by shuffleInteraction.collectIsPressedAsState()
-            LiquidGlassSurface(cornerRadius = 20.dp, alpha = if (isShuffle) 0.32f else 0.12f,
-                modifier = Modifier.size(42.dp).liquidPressEffect(shufflePressed)) {
-                IconButton(onClick = onShuffleToggle, modifier = Modifier.fillMaxSize(),
-                    interactionSource = shuffleInteraction) {
-                    Icon(Icons.Rounded.Shuffle, "Shuffle", modifier = Modifier.size(18.dp),
-                        tint = if (isShuffle) MaterialTheme.colorScheme.primary
-                               else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
-                }
+            AnimatedIconButton(
+                onClick = onShuffleToggle,
+                active = isShuffle,
+                cornerRadius = 20.dp,
+                size = 42.dp
+            ) {
+                Icon(Icons.Rounded.Shuffle, "Shuffle", modifier = Modifier.size(18.dp),
+                    tint = if (isShuffle) MaterialTheme.colorScheme.primary
+                           else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
             }
+
             val queueInteraction = remember { MutableInteractionSource() }
             val queuePressed by queueInteraction.collectIsPressedAsState()
-            LiquidGlassSurface(cornerRadius = 20.dp, alpha = if (isQueueMode) 0.32f else 0.12f,
-                modifier = Modifier.height(42.dp).wrapContentWidth().liquidPressEffect(queuePressed)) {
-                Row(modifier = Modifier
-                    .clickable(interactionSource = queueInteraction, indication = null, onClick = onQueueToggle)
-                    .padding(horizontal = 14.dp).fillMaxHeight(),
+            LiquidGlassSurface(
+                cornerRadius = 20.dp,
+                alpha = if (isQueueMode) 0.32f else 0.12f,
+                modifier = Modifier.height(42.dp).wrapContentWidth().liquidPressEffect(queuePressed)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clickable(interactionSource = queueInteraction, indication = null, onClick = onQueueToggle)
+                        .padding(horizontal = 14.dp).fillMaxHeight(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
                     Icon(Icons.Rounded.QueueMusic, null, modifier = Modifier.size(16.dp),
                         tint = if (isQueueMode) MaterialTheme.colorScheme.primary
                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
@@ -80,128 +87,267 @@ fun PlayerControls(
             }
         }
 
-        // Row 2: [5s | 10s | ♥]
-        SkipAndHeartPill(skipSeconds = skipSeconds, isFavourite = isFavourite,
-            onSkipSecondsChange = onSkipSecondsChange, onFavouriteToggle = onFavouriteToggle)
+        // Row 2: [5s | 10s | ♥] — drag left/right to change skip seconds
+        SkipAndHeartPill(
+            skipSeconds = skipSeconds,
+            isFavourite = isFavourite,
+            onSkipSecondsChange = onSkipSecondsChange,
+            onFavouriteToggle = onFavouriteToggle
+        )
 
         // Row 3: Rewind | Play/Pause | Forward
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             SkipButton(icon = Icons.Rounded.FastRewind, desc = "Rewind", onClick = onSkipBackward)
 
-            val playInteraction = remember { MutableInteractionSource() }
-            val playPressed by playInteraction.collectIsPressedAsState()
-            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.25f,
-                modifier = Modifier.size(72.dp).liquidPressEffect(playPressed)) {
-                IconButton(onClick = onPlayPause, modifier = Modifier.fillMaxSize(),
-                    interactionSource = playInteraction) {
-                    AnimatedContent(targetState = isPlaying,
-                        transitionSpec = {
-                            scaleIn(initialScale = 0.65f) + fadeIn() togetherWith scaleOut(targetScale = 0.65f) + fadeOut()
-                        }, label = "playpause") { playing ->
-                        Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            null, modifier = Modifier.size(38.dp), tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
+            AnimatedPlayPauseButton(isPlaying = isPlaying, onClick = onPlayPause)
 
             SkipButton(icon = Icons.Rounded.FastForward, desc = "Forward", onClick = onSkipForward)
         }
     }
 }
 
+// ── Skip + Heart pill with horizontal drag to change skip seconds ─────────────
 @Composable
 fun SkipAndHeartPill(
-    skipSeconds: Int, isFavourite: Boolean,
-    onSkipSecondsChange: (Int) -> Unit, onFavouriteToggle: () -> Unit
+    skipSeconds: Int,
+    isFavourite: Boolean,
+    onSkipSecondsChange: (Int) -> Unit,
+    onFavouriteToggle: () -> Unit
 ) {
+    val options = listOf(5, 10)
     val heartScale = remember { Animatable(1f) }
     val scope = rememberCoroutineScope()
     val heartTint by animateColorAsState(
         targetValue = if (isFavourite) Color(0xFFFF3B6B) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-        animationSpec = tween(280), label = "heartColor")
+        animationSpec = tween(280), label = "heartColor"
+    )
+
+    // Drag accumulator — dragging across the pill changes the selected skip value
+    var dragAccum by remember { mutableFloatStateOf(0f) }
 
     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.18f) {
         Row(
             modifier = Modifier
-                // Consume horizontal drags so swiping inside the pill doesn't trigger tab switch
-                .pointerInput(Unit) { detectHorizontalDragGestures { _, _ -> /* consume */ } }
+                .pointerInput(skipSeconds, options) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { dragAccum = 0f },
+                        onDragEnd   = { dragAccum = 0f },
+                        onDragCancel = { dragAccum = 0f },
+                        onHorizontalDrag = { _, delta ->
+                            dragAccum += delta
+                            val threshold = 60f  // px to swipe before changing value
+                            val currentIdx = options.indexOf(skipSeconds)
+                            if (dragAccum > threshold && currentIdx < options.lastIndex) {
+                                onSkipSecondsChange(options[currentIdx + 1])
+                                dragAccum = 0f
+                            } else if (dragAccum < -threshold && currentIdx > 0) {
+                                onSkipSecondsChange(options[currentIdx - 1])
+                                dragAccum = 0f
+                            }
+                        }
+                    )
+                }
                 .padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            listOf(5, 10).forEach { secs ->
+            options.forEach { secs ->
                 val isSelected = skipSeconds == secs
-                // Animated highlight
                 val bgAlpha by animateFloatAsState(if (isSelected) 0.22f else 0f, tween(200), label = "skipbg_$secs")
-                val interaction = remember { MutableInteractionSource() }
-                val pressed by interaction.collectIsPressedAsState()
-                Box(modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = bgAlpha), RoundedCornerShape(999.dp))
-                    .pointerInput(Unit) { detectTapGestures { onSkipSecondsChange(secs) } }
-                    .graphicsLayer { val s = if (pressed) 0.88f else 1f; scaleX = s; scaleY = s }
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                    contentAlignment = Alignment.Center) {
+                val textScale by animateFloatAsState(if (isSelected) 1.08f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "skipScale_$secs")
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = bgAlpha), RoundedCornerShape(999.dp))
+                        .pointerInput(secs) { detectTapGestures { onSkipSecondsChange(secs) } }
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .graphicsLayer { scaleX = textScale; scaleY = textScale },
+                    contentAlignment = Alignment.Center
+                ) {
                     Text("${secs}s", fontSize = 13.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSelected) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 }
             }
+
             Spacer(Modifier.width(2.dp))
-            Box(Modifier.width(1.dp).height(20.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)))
+            Box(Modifier.width(1.dp).height(20.dp).background(MaterialTheme.colorScheme.onSurface.copy(0.15f)))
             Spacer(Modifier.width(2.dp))
+
             val heartInteraction = remember { MutableInteractionSource() }
             val heartPressed by heartInteraction.collectIsPressedAsState()
-            Box(modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .then(if (isFavourite) Modifier.background(Color(0xFFFF3B6B).copy(alpha = 0.14f), RoundedCornerShape(999.dp)) else Modifier)
-                .clickable(interactionSource = heartInteraction, indication = null) {
-                    onFavouriteToggle()
-                    scope.launch {
-                        heartScale.animateTo(1.45f, tween(110, easing = FastOutSlowInEasing))
-                        heartScale.animateTo(1f, spring(stiffness = Spring.StiffnessHigh))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .then(if (isFavourite) Modifier.background(Color(0xFFFF3B6B).copy(alpha = 0.14f), RoundedCornerShape(999.dp)) else Modifier)
+                    .clickable(interactionSource = heartInteraction, indication = null) {
+                        onFavouriteToggle()
+                        scope.launch {
+                            heartScale.animateTo(1.45f, tween(110, easing = FastOutSlowInEasing))
+                            heartScale.animateTo(1f, spring(stiffness = Spring.StiffnessHigh))
+                        }
                     }
-                }
-                .graphicsLayer { val s = if (heartPressed) 0.88f else 1f; scaleX = s; scaleY = s }
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-                contentAlignment = Alignment.Center) {
-                Icon(if (isFavourite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                    "Favorite", modifier = Modifier.size(18.dp).scale(heartScale.value), tint = heartTint)
+                    .graphicsLayer { val s = if (heartPressed) 0.88f else 1f; scaleX = s; scaleY = s }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    if (isFavourite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    "Favorite",
+                    modifier = Modifier.size(18.dp).scale(heartScale.value),
+                    tint = heartTint
+                )
             }
         }
     }
 }
 
+// ── Animated play/pause button ────────────────────────────────────────────────
+@Composable
+fun AnimatedPlayPauseButton(isPlaying: Boolean, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.88f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "ppScale"
+    )
+    LiquidGlassSurface(
+        cornerRadius = 999.dp, alpha = 0.25f,
+        modifier = Modifier.size(72.dp).graphicsLayer { scaleX = scale; scaleY = scale }
+    ) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.fillMaxSize(),
+            interactionSource = interaction
+        ) {
+            AnimatedContent(
+                targetState = isPlaying,
+                transitionSpec = {
+                    scaleIn(initialScale = 0.55f, animationSpec = spring(stiffness = Spring.StiffnessMedium)) +
+                    fadeIn(tween(150)) togetherWith
+                    scaleOut(targetScale = 0.55f, animationSpec = spring(stiffness = Spring.StiffnessMedium)) +
+                    fadeOut(tween(100))
+                },
+                label = "playpause"
+            ) { playing ->
+                Icon(
+                    if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    null,
+                    modifier = Modifier.size(38.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+// ── Generic animated icon button ─────────────────────────────────────────────
+@Composable
+fun AnimatedIconButton(
+    onClick: () -> Unit,
+    active: Boolean = false,
+    cornerRadius: androidx.compose.ui.unit.Dp = 20.dp,
+    size: androidx.compose.ui.unit.Dp = 42.dp,
+    content: @Composable () -> Unit
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.88f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "btnScale"
+    )
+    val bgAlpha by animateFloatAsState(
+        targetValue = if (active) 0.32f else 0.12f,
+        animationSpec = tween(220),
+        label = "btnBg"
+    )
+    LiquidGlassSurface(
+        cornerRadius = cornerRadius,
+        alpha = bgAlpha,
+        modifier = Modifier.size(size).graphicsLayer { scaleX = scale; scaleY = scale }
+    ) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.fillMaxSize(),
+            interactionSource = interaction,
+            content = { content() }
+        )
+    }
+}
+
+// ── Skip rewind/forward button ────────────────────────────────────────────────
 @Composable
 fun SkipButton(icon: ImageVector, desc: String, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.15f,
-        modifier = Modifier.size(56.dp).liquidPressEffect(pressed)) {
-        IconButton(onClick = onClick, modifier = Modifier.fillMaxSize(), interactionSource = interaction) {
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.85f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "skipScale"
+    )
+    val rotation by animateFloatAsState(
+        targetValue = if (pressed) (if (desc == "Rewind") -18f else 18f) else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "skipRot"
+    )
+    LiquidGlassSurface(
+        cornerRadius = 20.dp, alpha = 0.15f,
+        modifier = Modifier.size(56.dp).graphicsLayer {
+            scaleX = scale; scaleY = scale; rotationZ = rotation
+        }
+    ) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.fillMaxSize(),
+            interactionSource = interaction
+        ) {
             Icon(icon, desc, modifier = Modifier.size(28.dp),
                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
         }
     }
 }
 
+// ── Heart button (standalone, used in video player) ───────────────────────────
 @Composable
 fun HeartButton(isFavourite: Boolean, onToggle: () -> Unit) {
     val scale = remember { Animatable(1f) }
     val scope = rememberCoroutineScope()
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    val btnScale by animateFloatAsState(
+        targetValue = if (pressed) 0.85f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "heartBtnScale"
+    )
     val tint by animateColorAsState(
         targetValue = if (isFavourite) Color(0xFFFF3B6B) else Color.White.copy(alpha = 0.55f),
-        animationSpec = tween(280), label = "heartColor")
-    LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isFavourite) 0.30f else 0.18f,
-        modifier = Modifier.size(34.dp).liquidPressEffect(pressed)) {
-        IconButton(onClick = {
-            onToggle()
-            scope.launch { scale.animateTo(1.45f, tween(110)); scale.animateTo(1f, spring(stiffness = Spring.StiffnessHigh)) }
-        }, modifier = Modifier.fillMaxSize(), interactionSource = interaction) {
-            Icon(if (isFavourite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                "Favorite", modifier = Modifier.size(16.dp).scale(scale.value), tint = tint)
+        animationSpec = tween(280), label = "heartColor"
+    )
+    LiquidGlassSurface(
+        cornerRadius = 999.dp,
+        alpha = if (isFavourite) 0.30f else 0.18f,
+        modifier = Modifier.size(34.dp).graphicsLayer { scaleX = btnScale; scaleY = btnScale }
+    ) {
+        IconButton(
+            onClick = {
+                onToggle()
+                scope.launch {
+                    scale.animateTo(1.45f, tween(110))
+                    scale.animateTo(1f, spring(stiffness = Spring.StiffnessHigh))
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
+            interactionSource = interaction
+        ) {
+            Icon(
+                if (isFavourite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                "Favorite",
+                modifier = Modifier.size(16.dp).scale(scale.value),
+                tint = tint
+            )
         }
     }
 }

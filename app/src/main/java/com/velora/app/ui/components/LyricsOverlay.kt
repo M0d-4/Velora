@@ -18,32 +18,32 @@ import androidx.compose.ui.unit.sp
 import com.velora.app.model.LyricLine
 import kotlinx.coroutines.launch
 
+enum class LyricsSlideDirection { LEFT_TO_RIGHT, UP }
+
 /**
- * Lyrics display.
- *
- * [singleLine] = true  → landscape audio mode: one line at a time, slides left→right.
- * [singleLine] = false → full scrolling list (portrait / video).
- *
- * Active line always slides in from the right (left→right direction).
+ * [singleLine] = true  → landscape audio: one line at a time, slides left→right slowly.
+ * [singleLine] = false → full scrolling list.
+ * [slideDirection] = UP → each new line slides upward (video player style).
+ * [slideDirection] = LEFT_TO_RIGHT → line slides in from right (audio portrait style).
  */
 @Composable
 fun LyricsOverlay(
     lyrics: List<LyricLine>,
     activeIndex: Int,
     modifier: Modifier = Modifier,
-    singleLine: Boolean = false
+    singleLine: Boolean = false,
+    slideDirection: LyricsSlideDirection = LyricsSlideDirection.LEFT_TO_RIGHT
 ) {
     if (lyrics.isEmpty()) return
 
     if (singleLine) {
-        // Landscape: one line at a time, animated left→right
+        // Landscape audio: one line at a time, slow left→right slide
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
             AnimatedContent(
                 targetState = activeIndex,
                 transitionSpec = {
-                    // Slide in from right → exits to left (left-to-right reading motion)
-                    (slideInHorizontally { it / 2 } + fadeIn(tween(300))) togetherWith
-                    (slideOutHorizontally { -it / 2 } + fadeOut(tween(200)))
+                    (slideInHorizontally(tween(600)) { it / 2 } + fadeIn(tween(600))) togetherWith
+                    (slideOutHorizontally(tween(400)) { -it / 2 } + fadeOut(tween(300)))
                 },
                 label = "lyric_single"
             ) { idx ->
@@ -55,14 +55,12 @@ fun LyricsOverlay(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
                     )
                 }
             }
         }
     } else {
-        // Portrait / video: scrolling list, active line larger, others fade
         val listState = rememberLazyListState()
         val scope = rememberCoroutineScope()
 
@@ -86,10 +84,10 @@ fun LyricsOverlay(
         ) {
             itemsIndexed(lyrics) { index, line ->
                 val isActive = index == activeIndex
-                val distance = (index - activeIndex).let { if (it < 0) -it else it }
+                val distance = kotlin.math.abs(index - activeIndex)
 
                 val textAlpha = when {
-                    isActive   -> 1f
+                    isActive      -> 1f
                     distance == 1 -> 0.55f
                     distance == 2 -> 0.35f
                     else          -> 0.2f
@@ -97,13 +95,18 @@ fun LyricsOverlay(
                 val fontSize   = if (isActive) 18.sp else 15.sp
                 val fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal
 
-                // Each line slides in from right (left→right) when becoming active
                 AnimatedContent(
                     targetState = isActive,
                     transitionSpec = {
                         if (targetState) {
-                            (slideInHorizontally { it / 3 } + fadeIn(tween(300))) togetherWith
-                            fadeOut(tween(200))
+                            when (slideDirection) {
+                                LyricsSlideDirection.UP ->
+                                    (slideInVertically(tween(350)) { it / 2 } + fadeIn(tween(300))) togetherWith
+                                    (slideOutVertically(tween(250)) { -it / 2 } + fadeOut(tween(200)))
+                                LyricsSlideDirection.LEFT_TO_RIGHT ->
+                                    (slideInHorizontally(tween(300)) { it / 3 } + fadeIn(tween(300))) togetherWith
+                                    fadeOut(tween(200))
+                            }
                         } else {
                             fadeIn(tween(200)) togetherWith fadeOut(tween(200))
                         }
@@ -116,10 +119,6 @@ fun LyricsOverlay(
                         fontSize = fontSize,
                         fontWeight = fontWeight,
                         textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontSize = fontSize,
-                            fontWeight = fontWeight
-                        ),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

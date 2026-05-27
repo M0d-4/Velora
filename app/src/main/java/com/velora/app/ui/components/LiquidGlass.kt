@@ -85,13 +85,30 @@ fun Modifier.liquidGlowShadow(cornerRadius: Dp, isDark: Boolean): Modifier = thi
 @Composable
 fun Modifier.liquidPressEffect(pressed: Boolean): Modifier {
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.94f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        targetValue = if (pressed) 0.93f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
         label = "pressScale"
     )
     val alpha by animateFloatAsState(
-        targetValue = if (pressed) 0.80f else 1f,
-        animationSpec = tween(80), label = "pressAlpha"
+        targetValue = if (pressed) 0.78f else 1f,
+        animationSpec = tween(60), label = "pressAlpha"
     )
     return this.graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }
+}
+
+/** Bouncy spring press — used on nav items and larger buttons */
+@Composable
+fun Modifier.bouncePressEffect(pressed: Boolean): Modifier {
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.88f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "bounceScale"
+    )
+    return this.graphicsLayer { scaleX = scale; scaleY = scale }
 }

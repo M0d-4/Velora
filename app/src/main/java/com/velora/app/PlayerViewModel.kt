@@ -363,6 +363,42 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         persistData()
     }
 
+    fun multiDeleteImportedMedia(itemIds: Set<Long>, deleteFiles: Boolean) {
+        val s = _state.value
+        if (deleteFiles) {
+            itemIds.forEach { id ->
+                s.extraMediaList.firstOrNull { it.id == id }?.uri?.path
+                    ?.let { path -> try { File(path).delete() } catch (_: Exception) {} }
+            }
+        }
+        val updatedPlaylists = s.playlists.map { p -> p.copy(itemIds = p.itemIds.filter { it !in itemIds }) }
+        _state.update { it.copy(
+            extraMediaList = it.extraMediaList.filter { m -> m.id !in itemIds },
+            mediaList = if (deleteFiles) it.mediaList.filter { m -> m.id !in itemIds } else it.mediaList,
+            playlists = updatedPlaylists
+        ) }; persistData()
+    }
+
+    fun multiDeletePlaylists(playlistIds: Set<Long>, deleteFiles: Boolean) {
+        val s = _state.value
+        if (deleteFiles) {
+            val affectedItemIds = s.playlists
+                .filter { it.id in playlistIds && !it.isFavourites }
+                .flatMap { it.itemIds }.toSet()
+            affectedItemIds.forEach { id ->
+                s.extraMediaList.firstOrNull { it.id == id }?.uri?.path
+                    ?.let { path -> try { File(path).delete() } catch (_: Exception) {} }
+            }
+            _state.update { it.copy(
+                extraMediaList = it.extraMediaList.filter { m -> m.id !in affectedItemIds },
+                mediaList = it.mediaList.filter { m -> m.id !in affectedItemIds }
+            ) }
+        }
+        _state.update { it.copy(
+            playlists = it.playlists.filter { p -> p.id !in playlistIds || p.isFavourites }
+        ) }; persistData()
+    }
+
     // ── ZIP import ─────────────────────────────────────────────────────────────
 
     fun importZip(
@@ -404,13 +440,13 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                                 val mime = if (isVideo) "video/$ext" else "audio/$ext"
                                 val lyricsFile = LyricsParser.findLyricsForMedia(outFile.absolutePath)
                                 val itemId = outFile.absolutePath.hashCode().toLong()
-                                val (title, artist, albumArtUri) = extractMetadata(outFile, name, zipName, ctx)
+                                val meta = extractMetadataFull(outFile, name, playlistName, ctx)
                                 importedItems.add(MediaItem(
                                     id = itemId, uri = Uri.fromFile(outFile),
-                                    title = title, artist = artist, album = zipName,
-                                    duration = 0L, mimeType = mime,
+                                    title = meta.title, artist = meta.artist, album = playlistName,
+                                    duration = meta.durationMs, mimeType = mime,
                                     lyricsPath = lyricsFile?.absolutePath,
-                                    albumArtUri = albumArtUri
+                                    albumArtUri = meta.artUri
                                 ))
                             }
                             zip.closeEntry(); entry = zip.nextEntry
@@ -469,21 +505,64 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             retriever.setDataSource(file.absolutePath)
             val title  = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
                 ?.takeIf { it.isNotBlank() } ?: fileName.substringBeforeLast('.')
-            val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
-                ?.takeIf { it.isNotBlank() && it != "<unknown>" } ?: fallbackArtist
-            // Save embedded art to a file next to the media file
-            val artUri: Uri? = retriever.embeddedPicture?.let { bytes ->
-                val artFile = File(file.parent, "${file.nameWithoutExtension}_art.jpg")
-                artFile.outputStream().use { it.write(bytes) }
-                Uri.fromFile(artFile)
-            }
+            val rawArtist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                ?.takeIf { it.isNotBlank() && it != "<unknown>" }
+            // For videos (or any file with no embedded artist), fall back to "Unknown Artist"
+            // only use the zip name as fallback for audio files
+            val ext = file.extension.lowercase()
+            val isVideo = ext in setOf("mp4", "mkv", "avi", "webm")
+            val artist = rawArtist ?: if (isVideo) "Unknown Artist" else fallbackArtist.ifBlank { "Unknown Artist" }
+            // Extract duration from metadata
+            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull() ?: 0L
+            // Save embedded art to a file next to the media file (audio only – videos have own thumbnails)
+            val artUri: Uri? = if (!isVideo) {
+                retriever.embeddedPicture?.let { bytes ->
+                    val artFile = File(file.parent, "${file.nameWithoutExtension}_art.jpg")
+                    artFile.outputStream().use { it.write(bytes) }
+                    Uri.fromFile(artFile)
+                }
+            } else null
             Triple(title, artist, artUri)
         } catch (_: Exception) {
-            Triple(fileName.substringBeforeLast('.'), fallbackArtist, null)
+            val isVideo = file.extension.lowercase() in setOf("mp4", "mkv", "avi", "webm")
+            Triple(fileName.substringBeforeLast('.'), if (isVideo) "Unknown Artist" else fallbackArtist.ifBlank { "Unknown Artist" }, null)
         } finally {
             retriever.release()
         }
     }
+
+    // Overload that also returns duration
+    private fun extractMetadataFull(file: File, fileName: String, fallbackArtist: String, ctx: Context): Quadruple {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(file.absolutePath)
+            val title  = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                ?.takeIf { it.isNotBlank() } ?: fileName.substringBeforeLast('.')
+            val rawArtist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                ?.takeIf { it.isNotBlank() && it != "<unknown>" }
+            val ext = file.extension.lowercase()
+            val isVideo = ext in setOf("mp4", "mkv", "avi", "webm")
+            val artist = rawArtist ?: if (isVideo) "Unknown Artist" else fallbackArtist.ifBlank { "Unknown Artist" }
+            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull() ?: 0L
+            val artUri: Uri? = if (!isVideo) {
+                retriever.embeddedPicture?.let { bytes ->
+                    val artFile = File(file.parent, "${file.nameWithoutExtension}_art.jpg")
+                    artFile.outputStream().use { it.write(bytes) }
+                    Uri.fromFile(artFile)
+                }
+            } else null
+            Quadruple(title, artist, artUri, durationMs)
+        } catch (_: Exception) {
+            val isVideo = file.extension.lowercase() in setOf("mp4", "mkv", "avi", "webm")
+            Quadruple(fileName.substringBeforeLast('.'), if (isVideo) "Unknown Artist" else fallbackArtist.ifBlank { "Unknown Artist" }, null, 0L)
+        } finally {
+            retriever.release()
+        }
+    }
+
+    data class Quadruple(val title: String, val artist: String, val artUri: android.net.Uri?, val durationMs: Long)
 
     fun clearZipMessage() = _state.update { it.copy(zipImportMessage = null) }
 

@@ -47,6 +47,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.velora.app.ui.components.LiquidGlassSurface
 import com.velora.app.ui.components.liquidPressEffect
+import com.velora.app.ui.components.bouncePressEffect
 import com.velora.app.ui.screens.*
 import com.velora.app.model.ZipPlaylistMode
 import com.velora.app.ui.theme.VeloraTheme
@@ -149,6 +150,9 @@ fun VeloraApp(
     val isVideoFullscreen = isVideoPlayer && state.isLandscape
     val isAudioLandscape = isAudioPlayer && state.isLandscape
 
+    // Video player hides bottom bar when controls are hidden
+    var videoHidesBottomBar by remember { mutableStateOf(true) }
+
     // Audio player controls auto-hide state (shared so bottom nav can hide too)
     var audioBottomBarVisible by remember { mutableStateOf(true) }
 
@@ -228,6 +232,8 @@ fun VeloraApp(
                             onRenamePlaylist = viewModel::renamePlaylist,
                             onAddToPlaylist = viewModel::addToPlaylist,
                             onRemoveImported = viewModel::removeImportedMedia,
+                            onMultiDeleteMedia = viewModel::multiDeleteImportedMedia,
+                            onMultiDeletePlaylists = viewModel::multiDeletePlaylists,
                             nonFavPlaylists = state.playlists.filter { !it.isFavourites }
                         )
                     } else PermissionPrompt { permissionLauncher.launch(permissions) }
@@ -252,7 +258,8 @@ fun VeloraApp(
                             onPlayNext = viewModel::playNext,
                             onPlayPrev = viewModel::playPrev,
                             isFavourite = state.currentItem?.let { viewModel.isFavourite(it) } ?: false,
-                            onRotate = onRotate
+                            onRotate = onRotate,
+                            onHideBottomBar = { videoHidesBottomBar = it }
                         )
                         else -> AudioPlayerScreen(
                             state = state,
@@ -287,14 +294,14 @@ fun VeloraApp(
                 enter = slideInVertically { it } + fadeIn(),
                 exit  = slideOutVertically { it } + fadeOut(),
                 modifier = Modifier.align(Alignment.BottomCenter)
-                    .padding(bottom = 80.dp, start = 12.dp, end = 12.dp)
+                    .padding(bottom = 74.dp, start = 12.dp, end = 12.dp)
             ) {
                 MiniPlayer(state = state, onPlayPause = viewModel::togglePlayPause,
                     onClick = { scope.launch { pagerState.animateScrollToPage(1) } })
             }
 
-            // Bottom nav — also hidden when video fullscreen OR audio landscape OR audio auto-hides
-            val showBottomNav = !isVideoFullscreen && !isAudioLandscape
+            // Bottom nav — hidden for video player (always), audio landscape, video fullscreen
+            val showBottomNav = !isVideoFullscreen && !isAudioLandscape && !(isVideoPlayer && videoHidesBottomBar)
             AnimatedVisibility(
                 visible = showBottomNav,
                 enter = slideInVertically { it } + fadeIn(),
@@ -376,7 +383,7 @@ private fun NavItem(
     Column(horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .padding(horizontal = 10.dp)
-            .liquidPressEffect(pressed)
+            .bouncePressEffect(pressed)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)) {
         Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
             Box {
@@ -445,7 +452,7 @@ private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClick: () 
                 trackColor = MaterialTheme.colorScheme.primaryContainer.copy(0.4f))
             val playInteraction = remember { MutableInteractionSource() }
             val playPressed by playInteraction.collectIsPressedAsState()
-            Box(Modifier.liquidPressEffect(playPressed)) {
+            Box(Modifier.bouncePressEffect(playPressed)) {
                 IconButton(onClick = onPlayPause, interactionSource = playInteraction) {
                     Icon(if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))

@@ -52,12 +52,39 @@ fun MediaListScreen(
     onRenamePlaylist: (Long, String) -> Unit,
     onAddToPlaylist: (Long, MediaItem) -> Unit,
     onRemoveImported: (Long) -> Unit,
+    onMultiDeleteMedia: (Set<Long>, Boolean) -> Unit,
+    onMultiDeletePlaylists: (Set<Long>, Boolean) -> Unit,
     nonFavPlaylists: List<Playlist>,
     modifier: Modifier = Modifier
 ) {
     var showNewPlaylistDialog by remember { mutableStateOf(false) }
     var showMergeDialog by remember { mutableStateOf(false) }
     var addToPlaylistItem by remember { mutableStateOf<MediaItem?>(null) }
+    var multiSelectMode by remember { mutableStateOf(false) }
+    var selectedMediaIds by remember { mutableStateOf(setOf<Long>()) }
+    var selectedPlaylistIds by remember { mutableStateOf(setOf<Long>()) }
+    var showMultiDeleteMediaDialog by remember { mutableStateOf(false) }
+    var showMultiDeletePlaylistDialog by remember { mutableStateOf(false) }
+
+    // Multi-delete dialogs
+    if (showMultiDeleteMediaDialog) {
+        MultiDeleteDialog(
+            count = selectedMediaIds.size,
+            entityName = "file",
+            onDeleteWithFiles = { onMultiDeleteMedia(selectedMediaIds, true); selectedMediaIds = emptySet(); multiSelectMode = false; showMultiDeleteMediaDialog = false },
+            onDeleteWithoutFiles = { onMultiDeleteMedia(selectedMediaIds, false); selectedMediaIds = emptySet(); multiSelectMode = false; showMultiDeleteMediaDialog = false },
+            onDismiss = { showMultiDeleteMediaDialog = false }
+        )
+    }
+    if (showMultiDeletePlaylistDialog) {
+        MultiDeleteDialog(
+            count = selectedPlaylistIds.size,
+            entityName = "playlist",
+            onDeleteWithFiles = { onMultiDeletePlaylists(selectedPlaylistIds, true); selectedPlaylistIds = emptySet(); multiSelectMode = false; showMultiDeletePlaylistDialog = false },
+            onDeleteWithoutFiles = { onMultiDeletePlaylists(selectedPlaylistIds, false); selectedPlaylistIds = emptySet(); multiSelectMode = false; showMultiDeletePlaylistDialog = false },
+            onDismiss = { showMultiDeletePlaylistDialog = false }
+        )
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         // ── Header — hugs status bar ───────────────────────────────────────────
@@ -316,30 +343,14 @@ private fun PlaylistRow(playlist: Playlist, mediaList: List<MediaItem>, onPlay: 
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer.copy(0.35f))) {
-                if (playlist.isFavourites || artItems.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(if (playlist.isFavourites) Icons.Rounded.Favorite else Icons.Rounded.PlaylistPlay, null,
-                            modifier = Modifier.size(28.dp),
-                            tint = if (playlist.isFavourites) Color(0xFFFF3B6B) else MaterialTheme.colorScheme.primary.copy(0.8f))
-                    }
-                } else if (artItems.size < 4) {
-                    val art = artItems.firstOrNull()?.artUri
-                    if (art != null) AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                    else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.PlaylistPlay, null, modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary.copy(0.8f)) }
-                } else {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        listOf(artItems.take(2), artItems.drop(2)).forEach { row ->
-                            Row(modifier = Modifier.weight(1f)) {
-                                row.forEach { it2 ->
-                                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                                        val a = it2.artUri
-                                        if (a != null) AsyncImage(model = a, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                                        else Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primaryContainer.copy(0.3f)))
-                                    }
-                                }
-                            }
-                        }
-                    }
+                // Always show playlist icon — never pull in song cover art for a playlist
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        if (playlist.isFavourites) Icons.Rounded.Favorite else Icons.Rounded.PlaylistPlay,
+                        null,
+                        modifier = Modifier.size(28.dp),
+                        tint = if (playlist.isFavourites) Color(0xFFFF3B6B) else MaterialTheme.colorScheme.primary.copy(0.8f)
+                    )
                 }
             }
             Column(Modifier.weight(1f)) {
@@ -436,4 +447,40 @@ private fun MediaRow(
             }
         }
     }
+}
+
+// ── Multi-delete dialog ───────────────────────────────────────────────────────
+@Composable
+private fun MultiDeleteDialog(
+    count: Int,
+    entityName: String,
+    onDeleteWithFiles: () -> Unit,
+    onDeleteWithoutFiles: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete $count ${entityName}${if (count != 1) "s" else ""}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Would you like to also delete the actual files from storage?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(0.7f))
+                Spacer(Modifier.height(4.dp))
+                Button(onClick = onDeleteWithFiles, modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
+                    Icon(Icons.Rounded.DeleteForever, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Delete + remove files")
+                }
+                OutlinedButton(onClick = onDeleteWithoutFiles, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Delete (keep files)")
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
