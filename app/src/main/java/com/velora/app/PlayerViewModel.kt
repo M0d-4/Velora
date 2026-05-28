@@ -235,8 +235,15 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val exoItem = ExoMediaItem.Builder().setUri(item.uri).setMediaMetadata(meta).build()
         ctrl.setMediaItem(exoItem); ctrl.prepare(); ctrl.play()
         ctrl.setPlaybackParameters(PlaybackParameters(_state.value.playbackSpeed))
-        val lyrics = item.lyricsPath?.let { LyricsParser.parse(File(it)) } ?: emptyList()
-        _state.update { it.copy(currentItem = item, lyrics = lyrics, activeLyricIndex = -1) }
+        // If item doesn't have a lyricsPath yet, try loading from stable lyrics dir
+        val resolvedItem = if (item.lyricsPath == null) {
+            val ctx = getApplication<Application>()
+            val lyricsDir = File(ctx.filesDir, "lyrics")
+            val found = lyricsDir.listFiles()?.firstOrNull { it.name.startsWith("lyrics_${item.id}.") }
+            if (found != null) item.copy(lyricsPath = found.absolutePath) else item
+        } else item
+        val lyrics = resolvedItem.lyricsPath?.let { LyricsParser.parse(File(it)) } ?: emptyList()
+        _state.update { it.copy(currentItem = resolvedItem, lyrics = lyrics, activeLyricIndex = -1) }
         startPositionTracking()
     }
 
@@ -334,10 +341,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val shuffled = if (s.isShuffle) items.shuffled() else items
         _state.update { it.copy(isQueueMode = true, queue = shuffled, queueIndex = 0) }; playItem(shuffled[0])
     }
-    fun mergePlaylists(sourceIds: List<Long>, newName: String) {
+    fun mergePlaylists(sourceIds: List<Long>, newName: String, keepOriginals: Boolean = false) {
         val s = _state.value
         val mergedIds = sourceIds.flatMap { id -> s.playlists.firstOrNull { it.id == id }?.itemIds ?: emptyList() }.distinct()
-        _state.update { it.copy(playlists = it.playlists + Playlist(id = System.currentTimeMillis(), name = newName, itemIds = mergedIds)) }; persistData()
+        _state.update { state ->
+            val merged = Playlist(id = System.currentTimeMillis(), name = newName, itemIds = mergedIds)
+            val filtered = if (keepOriginals) state.playlists else state.playlists.filter { p -> p.id !in sourceIds }
+            state.copy(playlists = filtered + merged)
+        }; persistData()
     }
     fun renamePlaylist(playlistId: Long, newName: String) {
         val updated = _state.value.playlists.map { p ->
@@ -574,10 +585,25 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val ctx = getApplication<Application>()
                 val ext = ctx.contentResolver.getType(uri)?.substringAfterLast('/') ?: "lrc"
-                val dest = File(ctx.cacheDir, "imported_lyrics.$ext")
-                ctx.contentResolver.openInputStream(uri)?.use { it2 -> FileOutputStream(dest).use { it2.copyTo(it) } }
+                // Use a stable filename keyed by media id so lyrics survive navigation
+                val lyricsDir = File(ctx.filesDir, "lyrics").also { it.mkdirs() }
+                val dest = File(lyricsDir, "lyrics_${item.id}.$ext")
+                ctx.contentResolver.openInputStream(uri)?.use { inp -> FileOutputStream(dest).use { inp.copyTo(it) } }
                 val lyrics = LyricsParser.parse(dest)
-                _state.update { it.copy(currentItem = item.copy(lyricsPath = dest.absolutePath), lyrics = lyrics, activeLyricIndex = -1) }
+                val updatedItem = item.copy(lyricsPath = dest.absolutePath)
+                _state.update { s ->
+                    // Persist lyricsPath back into mediaList / extraMediaList so reload survives
+                    val updatedMedia = s.mediaList.map { m -> if (m.id == item.id) m.copy(lyricsPath = dest.absolutePath) else m }
+                    val updatedExtra = s.extraMediaList.map { m -> if (m.id == item.id) m.copy(lyricsPath = dest.absolutePath) else m }
+                    s.copy(
+                        currentItem = updatedItem,
+                        lyrics = lyrics,
+                        activeLyricIndex = -1,
+                        mediaList = updatedMedia,
+                        extraMediaList = updatedExtra
+                    )
+                }
+                persistData()
             } catch (_: Exception) {}
         }
     }

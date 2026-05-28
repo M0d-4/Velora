@@ -206,7 +206,9 @@ fun VeloraApp(
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
-                    .padding(bottom = if (isVideoFullscreen || isAudioLandscape) 0.dp else 72.dp),
+                    .padding(bottom = if (isVideoFullscreen || isAudioLandscape) 0.dp
+                                     else if (isVideoPlayer) 56.dp
+                                     else 64.dp),
                 userScrollEnabled = !isVideoFullscreen && !isAudioLandscape
             ) { page ->
                 when (page) {
@@ -227,7 +229,7 @@ fun VeloraApp(
                             },
                             onAddToFavourites = viewModel::toggleFavourite,
                             isFavourite = viewModel::isFavourite,
-                            onMergePlaylists = viewModel::mergePlaylists,
+                            onMergePlaylists = { ids, name, keep -> viewModel.mergePlaylists(ids, name, keep) },
                             onDeletePlaylist = viewModel::deletePlaylist,
                             onRenamePlaylist = viewModel::renamePlaylist,
                             onAddToPlaylist = viewModel::addToPlaylist,
@@ -294,14 +296,15 @@ fun VeloraApp(
                 enter = slideInVertically { it } + fadeIn(),
                 exit  = slideOutVertically { it } + fadeOut(),
                 modifier = Modifier.align(Alignment.BottomCenter)
-                    .padding(bottom = 74.dp, start = 12.dp, end = 12.dp)
+                    .padding(bottom = 62.dp, start = 12.dp, end = 12.dp)
             ) {
                 MiniPlayer(state = state, onPlayPause = viewModel::togglePlayPause,
                     onClick = { scope.launch { pagerState.animateScrollToPage(1) } })
             }
 
             // Bottom nav — hidden for video player (always), audio landscape, video fullscreen
-            val showBottomNav = !isVideoFullscreen && !isAudioLandscape && !(isVideoPlayer && videoHidesBottomBar)
+            // Show bottom nav everywhere except true fullscreen / landscape audio
+            val showBottomNav = !isVideoFullscreen && !isAudioLandscape
             AnimatedVisibility(
                 visible = showBottomNav,
                 enter = slideInVertically { it } + fadeIn(),
@@ -311,7 +314,8 @@ fun VeloraApp(
                 LiquidBottomNav(
                     selectedTab = selectedTab,
                     onTabSelected = { scope.launch { pagerState.animateScrollToPage(it) } },
-                    hasNowPlaying = state.currentItem != null
+                    hasNowPlaying = state.currentItem != null,
+                    isVideoPlayer = isVideoPlayer
                 )
             }
 
@@ -347,59 +351,127 @@ fun VeloraApp(
 
 // ── Bottom nav: 3 tabs ─────────────────────────────────────────────────────────
 
+/**
+ * Compact floating pill nav bar — replaces the full-width tab bar.
+ * Three icon buttons in a small frosted pill that floats above content.
+ * Visible in all screens including video player.
+ */
 @Composable
-private fun LiquidBottomNav(selectedTab: Int, onTabSelected: (Int) -> Unit, hasNowPlaying: Boolean) {
-    Box(modifier = Modifier.fillMaxWidth()
-        .background(Brush.verticalGradient(listOf(Color.Transparent,
-            MaterialTheme.colorScheme.background.copy(0.97f))))
-        .navigationBarsPadding()
+private fun LiquidBottomNav(
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit,
+    hasNowPlaying: Boolean,
+    isVideoPlayer: Boolean = false
+) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.BottomCenter
     ) {
-        LiquidGlassSurface(cornerRadius = 24.dp, alpha = 0.18f,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp)) {
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly) {
-                NavItem(Icons.Rounded.LibraryMusic, "Library", selectedTab == 0) { onTabSelected(0) }
-                NavItem(
-                    if (hasNowPlaying) Icons.Rounded.MusicVideo else Icons.Rounded.PlayCircle,
-                    "Playing", selectedTab == 1, badge = hasNowPlaying
-                ) { onTabSelected(1) }
-                NavItem(Icons.Rounded.Settings, "Settings", selectedTab == 2) { onTabSelected(2) }
+        // Faint gradient so the pill reads against any background
+        Box(
+            modifier = Modifier.fillMaxWidth().height(56.dp)
+                .background(Brush.verticalGradient(
+                    listOf(Color.Transparent,
+                        if (isVideoPlayer) Color.Black.copy(0.45f)
+                        else MaterialTheme.colorScheme.background.copy(0.90f))
+                ))
+        )
+        // The pill itself — centred, does not stretch full width
+        LiquidGlassSurface(
+            cornerRadius = 999.dp,
+            alpha = if (isVideoPlayer) 0.30f else 0.22f,
+            modifier = Modifier
+                .navigationBarsPadding()
+                .padding(bottom = 6.dp)
+                .wrapContentWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                PillNavItem(
+                    icon = Icons.Rounded.LibraryMusic,
+                    label = "Library",
+                    selected = selectedTab == 0,
+                    isVideoOverlay = isVideoPlayer,
+                    onClick = { onTabSelected(0) }
+                )
+                PillNavItem(
+                    icon = if (hasNowPlaying) Icons.Rounded.MusicVideo else Icons.Rounded.PlayCircle,
+                    label = "Playing",
+                    selected = selectedTab == 1,
+                    badge = hasNowPlaying && selectedTab != 1,
+                    isVideoOverlay = isVideoPlayer,
+                    onClick = { onTabSelected(1) }
+                )
+                PillNavItem(
+                    icon = Icons.Rounded.Settings,
+                    label = "Settings",
+                    selected = selectedTab == 2,
+                    isVideoOverlay = isVideoPlayer,
+                    onClick = { onTabSelected(2) }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun NavItem(
+private fun PillNavItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String, selected: Boolean, badge: Boolean = false, onClick: () -> Unit
+    label: String,
+    selected: Boolean,
+    badge: Boolean = false,
+    isVideoOverlay: Boolean = false,
+    onClick: () -> Unit
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val indicatorScale by animateFloatAsState(
-        if (selected) 1f else 0f, spring(stiffness = Spring.StiffnessMediumLow), label = "ind")
-    val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.5f)
+    val bgAlpha by animateFloatAsState(
+        if (selected) if (isVideoOverlay) 0.28f else 0.22f else 0f,
+        spring(stiffness = Spring.StiffnessMediumLow), label = "pillBg"
+    )
+    val activeColor = if (isVideoOverlay) Color.White else MaterialTheme.colorScheme.primary
+    val inactiveColor = if (isVideoOverlay) Color.White.copy(0.45f) else MaterialTheme.colorScheme.onSurface.copy(0.45f)
+    val iconColor = if (selected) activeColor else inactiveColor
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally,
+    Box(
         modifier = Modifier
-            .padding(horizontal = 10.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(activeColor.copy(alpha = bgAlpha), RoundedCornerShape(999.dp))
             .bouncePressEffect(pressed)
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick)) {
-        Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = if (selected) 14.dp else 10.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
             Box {
-                Icon(icon, label, tint = color, modifier = Modifier.size(22.dp))
-                if (badge && !selected) {
-                    Box(Modifier.size(6.dp)
-                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(999.dp))
-                        .align(Alignment.TopEnd))
+                Icon(icon, label, tint = iconColor, modifier = Modifier.size(18.dp))
+                if (badge) {
+                    Box(
+                        Modifier.size(5.dp)
+                            .background(if (isVideoOverlay) Color.White else MaterialTheme.colorScheme.primary, RoundedCornerShape(999.dp))
+                            .align(Alignment.TopEnd)
+                    )
                 }
             }
+            AnimatedVisibility(
+                visible = selected,
+                enter = fadeIn(tween(180)) + expandHorizontally(tween(180)),
+                exit  = fadeOut(tween(130)) + shrinkHorizontally(tween(130))
+            ) {
+                Text(
+                    label,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = activeColor
+                )
+            }
         }
-        Text(label, fontSize = 9.sp, color = color,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
-        Box(Modifier.width(18.dp).height(2.dp)
-            .graphicsLayer { scaleX = indicatorScale; alpha = indicatorScale }
-            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(999.dp)))
     }
 }
 

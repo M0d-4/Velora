@@ -47,7 +47,7 @@ fun VideoPlayerScreen(
     onPlayPrev: () -> Unit,
     isFavourite: Boolean,
     onRotate: () -> Unit,
-    onHideBottomBar: (Boolean) -> Unit,   // true = hide bottom bar in parent
+    onHideBottomBar: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val item = state.currentItem ?: return
@@ -60,7 +60,6 @@ fun VideoPlayerScreen(
 
     // Notify parent to hide/show bottom bar whenever controls visibility changes
     LaunchedEffect(controlsVisible) { onHideBottomBar(!controlsVisible) }
-    // Always hide bottom bar when video player is active
     LaunchedEffect(Unit) { onHideBottomBar(true) }
 
     // Auto-hide controls after 3s
@@ -77,9 +76,17 @@ fun VideoPlayerScreen(
         modifier = modifier.fillMaxSize().background(Color.Black)
             .pointerInput(Unit) {
                 detectTapGestures {
-                    // Any tap toggles controls; taps on control area reset timer instead
-                    controlsVisible = !controlsVisible
-                    lastInteractionTime = System.currentTimeMillis()
+                    if (controlsVisible) {
+                        // Tap while controls visible: hide if speed is not expanded, else close speed
+                        if (speedExpanded) {
+                            speedExpanded = false
+                        } else {
+                            controlsVisible = false
+                        }
+                    } else {
+                        controlsVisible = true
+                        lastInteractionTime = System.currentTimeMillis()
+                    }
                 }
             }
     ) {
@@ -112,9 +119,14 @@ fun VideoPlayerScreen(
         ) {
             Box(
                 Modifier.fillMaxSize()
-                    // Taps inside the controls layer reset the timer without toggling
                     .pointerInput(Unit) {
-                        detectTapGestures { lastInteractionTime = System.currentTimeMillis() }
+                        // Taps inside controls reset timer — don't bubble to outer Box
+                        detectTapGestures {
+                            if (speedExpanded) {
+                                speedExpanded = false
+                            }
+                            lastInteractionTime = System.currentTimeMillis()
+                        }
                     }
             ) {
                 // Top gradient
@@ -159,7 +171,7 @@ fun VideoPlayerScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
-                    // Prev (greyed out if not in playlist)
+                    // Prev — enabled when in playlist
                     LiquidGlassSurface(
                         cornerRadius = 999.dp,
                         alpha = if (isInPlaylist) 0.20f else 0.08f,
@@ -172,7 +184,7 @@ fun VideoPlayerScreen(
                         ) {
                             Icon(Icons.Rounded.SkipPrevious, "Previous",
                                 modifier = Modifier.size(24.dp),
-                                tint = if (isInPlaylist) Color.White.copy(0.9f) else Color.White.copy(0.25f))
+                                tint = if (isInPlaylist) Color.White.copy(0.9f) else Color.White.copy(0.3f))
                         }
                     }
 
@@ -198,7 +210,7 @@ fun VideoPlayerScreen(
                         onSkipForward(); lastInteractionTime = System.currentTimeMillis()
                     }
 
-                    // Next (greyed out if not in playlist)
+                    // Next — enabled when in playlist
                     LiquidGlassSurface(
                         cornerRadius = 999.dp,
                         alpha = if (isInPlaylist) 0.20f else 0.08f,
@@ -211,7 +223,7 @@ fun VideoPlayerScreen(
                         ) {
                             Icon(Icons.Rounded.SkipNext, "Next",
                                 modifier = Modifier.size(24.dp),
-                                tint = if (isInPlaylist) Color.White.copy(0.9f) else Color.White.copy(0.25f))
+                                tint = if (isInPlaylist) Color.White.copy(0.9f) else Color.White.copy(0.3f))
                         }
                     }
                 }
@@ -224,7 +236,7 @@ fun VideoPlayerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Scrubber full width — left tap = rewind, right tap = skip forward
+                    // Scrubber full width — skip zones built in
                     MediaScrubber(
                         positionMs    = state.positionMs,
                         durationMs    = state.durationMs,
@@ -235,7 +247,7 @@ fun VideoPlayerScreen(
                         modifier      = Modifier.fillMaxWidth()
                     )
 
-                    // Speed + skip seconds row (skip pill hidden when speed expanded)
+                    // Speed + skip seconds row
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -260,11 +272,13 @@ fun VideoPlayerScreen(
                     }
 
                     // Lyrics + shuffle + queue + fav row
+                    // Import lyrics button is in this row — not stuck to system nav bar
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        TextButton(onClick = { onImportLyrics(); lastInteractionTime = System.currentTimeMillis() }) {
+                        TextButton(onClick = { onImportLyrics(); lastInteractionTime = System.currentTimeMillis() },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
                             Icon(Icons.Rounded.Lyrics, null, modifier = Modifier.size(14.dp), tint = Color.White.copy(0.7f))
                             Spacer(Modifier.width(4.dp))
                             Text(if (hasLyrics) "Change lyrics" else "Import lyrics",
@@ -281,6 +295,7 @@ fun VideoPlayerScreen(
                                 }
                             }
                         }
+                        Spacer(Modifier.weight(1f))
                         LiquidGlassSurface(cornerRadius = 999.dp,
                             alpha = if (state.isShuffle) 0.35f else 0.18f,
                             modifier = Modifier.size(34.dp)) {
@@ -306,12 +321,12 @@ fun VideoPlayerScreen(
             }
         }
 
-        // ── Lyrics (always visible, slides up) ──────────────────────────────
+        // ── Lyrics — LEFT_TO_RIGHT for video, always rendered ──────────────
         if (hasLyrics) {
             LyricsOverlay(
                 lyrics = state.lyrics,
                 activeIndex = state.activeLyricIndex,
-                slideDirection = LyricsSlideDirection.UP,
+                slideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
                 modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(160.dp)
                     .padding(bottom = if (controlsVisible) 160.dp else 24.dp)
             )

@@ -28,10 +28,7 @@ private val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
 
 /**
  * Compact inline speed picker. Expands/collapses with animation.
- * onExpandedChange lets the parent know when the panel opens/closes
- * so it can hide other controls.
- * Horizontal drag within the expanded panel won't leak to the tab pager
- * (pointerInput consumes horizontal events inside the pill).
+ * Tapping anywhere outside (via onDismissRequest) collapses it.
  */
 @Composable
 fun PlaybackSpeedControl(
@@ -48,23 +45,22 @@ fun PlaybackSpeedControl(
         onExpandedChange?.invoke(v)
     }
 
+    // Allow parent to force-close via onDismissRequest
+    LaunchedEffect(onDismissRequest) {
+        // no-op: onDismissRequest is called by parent tap handler
+    }
+
     AnimatedContent(
         targetState = expanded,
         transitionSpec = {
             if (targetState) {
-                // Expanding: fade+slide in from left
-                (fadeIn(tween(200)) + expandHorizontally(tween(220))) togetherWith
-                (fadeOut(tween(150)))
+                (fadeIn(tween(200)) + expandHorizontally(tween(220))) togetherWith fadeOut(tween(150))
             } else {
-                // Collapsing
-                (fadeIn(tween(200))) togetherWith
-                (fadeOut(tween(150)) + shrinkHorizontally(tween(200)))
+                fadeIn(tween(200)) togetherWith (fadeOut(tween(150)) + shrinkHorizontally(tween(200)))
             }
-        },
-        label = "speedPanel"
+        }, label = "speedPanel"
     ) { isExpanded ->
         if (!isExpanded) {
-            // Collapsed: single pill
             val interaction = remember { MutableInteractionSource() }
             val pressed by interaction.collectIsPressedAsState()
             LiquidGlassSurface(
@@ -86,7 +82,6 @@ fun PlaybackSpeedControl(
                 }
             }
         } else {
-            // Expanded: horizontal pill row
             // Consume horizontal drag so the pager doesn't intercept
             LiquidGlassSurface(
                 cornerRadius = 999.dp,
@@ -143,6 +138,24 @@ fun PlaybackSpeedControl(
             }
         }
     }
+}
+
+// Expose a way to close the speed panel externally
+@Composable
+fun PlaybackSpeedControlWithDismiss(
+    currentSpeed: Float,
+    onSpeedChange: (Float) -> Unit,
+    isVideoOverlay: Boolean = false,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit
+) {
+    PlaybackSpeedControl(
+        currentSpeed = currentSpeed,
+        onSpeedChange = onSpeedChange,
+        isVideoOverlay = isVideoOverlay,
+        onExpandedChange = onExpandedChange,
+        onDismissRequest = { onExpandedChange(false) }
+    )
 }
 
 private fun speedLabel(speed: Float): String = when (speed) {

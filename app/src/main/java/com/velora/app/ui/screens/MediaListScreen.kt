@@ -47,7 +47,7 @@ fun MediaListScreen(
     onPlayPlaylist: (Playlist) -> Unit,
     onAddToFavourites: (MediaItem) -> Unit,
     isFavourite: (MediaItem) -> Boolean,
-    onMergePlaylists: (List<Long>, String) -> Unit,
+    onMergePlaylists: (List<Long>, String, Boolean) -> Unit,
     onDeletePlaylist: (Long) -> Unit,
     onRenamePlaylist: (Long, String) -> Unit,
     onAddToPlaylist: (Long, MediaItem) -> Unit,
@@ -178,7 +178,7 @@ fun MediaListScreen(
     // ── Merge playlists ────────────────────────────────────────────────────────
     if (showMergeDialog) {
         MergePlaylistsDialog(playlists = state.playlists,
-            onMerge = { ids, name -> onMergePlaylists(ids, name); showMergeDialog = false },
+            onMerge = { ids, name, keep -> onMergePlaylists(ids, name, keep); showMergeDialog = false },
             onDismiss = { showMergeDialog = false })
     }
 
@@ -255,46 +255,104 @@ private fun AddToPlaylistDialog(
 
 // ── Merge dialog ───────────────────────────────────────────────────────────────
 @Composable
-private fun MergePlaylistsDialog(playlists: List<Playlist>, onMerge: (List<Long>, String) -> Unit, onDismiss: () -> Unit) {
+private fun MergePlaylistsDialog(
+    playlists: List<Playlist>,
+    onMerge: (List<Long>, String, Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
     val selected = remember { mutableStateListOf<Long>() }
     var newName by remember { mutableStateOf("") }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Merge Playlists") },
+    var keepOriginals by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Merge Playlists") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Select 2 or more playlists:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.7f))
+                Text("Select 2 or more playlists:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(0.7f))
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     playlists.forEach { playlist ->
                         val checked = selected.contains(playlist.id)
-                        Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                        Row(modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
                             .background(if (checked) MaterialTheme.colorScheme.primaryContainer.copy(0.3f) else Color.Transparent)
                             .clickable { if (checked) selected.remove(playlist.id) else selected.add(playlist.id) }
                             .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Checkbox(checked = checked, onCheckedChange = { if (it) selected.add(playlist.id) else selected.remove(playlist.id) })
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Checkbox(checked = checked, onCheckedChange = {
+                                if (it) selected.add(playlist.id) else selected.remove(playlist.id)
+                            })
                             Column {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    if (playlist.isFavourites) Icon(Icons.Rounded.Favorite, null, modifier = Modifier.size(14.dp), tint = Color(0xFFFF3B6B))
-                                    Text(playlist.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                Row(verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    if (playlist.isFavourites) Icon(Icons.Rounded.Favorite, null,
+                                        modifier = Modifier.size(14.dp), tint = Color(0xFFFF3B6B))
+                                    Text(playlist.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium)
                                 }
-                                Text("${playlist.itemIds.size} songs", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(0.5f))
+                                Text("${playlist.itemIds.size} songs",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(0.5f))
                             }
                         }
                     }
                 }
-                OutlinedTextField(value = newName, onValueChange = { newName = it }, label = { Text("New playlist name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = newName, onValueChange = { newName = it },
+                    label = { Text("New playlist name") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 if (selected.size >= 2) {
-                    val total = playlists.filter { selected.contains(it.id) }.flatMap { it.itemIds }.distinct().size
-                    Text("Will contain $total unique songs", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    val total = playlists.filter { selected.contains(it.id) }
+                        .flatMap { it.itemIds }.distinct().size
+                    Text("Will contain $total unique songs",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary)
+                }
+                // Keep originals toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (keepOriginals) MaterialTheme.colorScheme.primaryContainer.copy(0.25f) else Color.Transparent)
+                        .clickable { keepOriginals = !keepOriginals }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Checkbox(checked = keepOriginals, onCheckedChange = { keepOriginals = it })
+                    Column {
+                        Text("Keep original playlists",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            if (keepOriginals) "Originals will stay alongside the merged playlist"
+                            else "Originals will be deleted after merging",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(0.55f)
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                val finalName = newName.trim().ifBlank { playlists.filter { selected.contains(it.id) }.take(2).joinToString(" + ") { it.name } }
-                if (selected.size >= 2) onMerge(selected.toList(), finalName)
-            }, enabled = selected.size >= 2) { Text("Merge") }
+            TextButton(
+                onClick = {
+                    val finalName = newName.trim().ifBlank {
+                        playlists.filter { selected.contains(it.id) }.take(2).joinToString(" + ") { it.name }
+                    }
+                    if (selected.size >= 2) onMerge(selected.toList(), finalName, keepOriginals)
+                },
+                enabled = selected.size >= 2
+            ) { Text("Merge") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 // ── Rename playlist dialog ─────────────────────────────────────────────────────
