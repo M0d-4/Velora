@@ -251,7 +251,7 @@ fun VideoPlayerScreen(
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
                         // Extra lift so the time bar is clearly below the centre transport
-                        .padding(horizontal = 20.dp, bottom = 60.dp, top = 0.dp),
+                        .padding(start = 20.dp, end = 20.dp, bottom = 60.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
