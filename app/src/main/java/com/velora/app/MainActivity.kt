@@ -43,7 +43,6 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.velora.app.ui.components.LiquidGlassSurface
 import com.velora.app.ui.components.liquidPressEffect
@@ -120,16 +119,13 @@ fun VeloraApp(
     ) { results -> hasPermission = results.values.any { it } }
     LaunchedEffect(Unit) { if (!hasPermission) permissionLauncher.launch(permissions) }
 
-    // ExoPlayer connection
-    var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
-    DisposableEffect(Unit) {
-        val token = SessionToken(context,
-            android.content.ComponentName(context, com.velora.app.service.PlayerService::class.java))
-        val future = MediaController.Builder(context, token).buildAsync()
-        future.addListener({
-            try { exoPlayer = future.get() as? ExoPlayer } catch (_: Exception) {}
-        }, ContextCompat.getMainExecutor(context))
-        onDispose { MediaController.releaseFuture(future) }
+    // ExoPlayer — obtained directly from PlayerService companion object.
+    // The service is started by the ViewModel; we poll until it is available.
+    val exoPlayer by produceState<ExoPlayer?>(initialValue = null) {
+        while (value == null) {
+            value = com.velora.app.service.PlayerService.player
+            if (value == null) kotlinx.coroutines.delay(100)
+        }
     }
 
     // ZIP import: show dialog to choose playlist option
@@ -197,6 +193,16 @@ fun VeloraApp(
         )
     }
 
+    // Playlist selector dialog — shown when next/prev item belongs to >1 playlist
+    val pendingChoice = state.pendingPlaylistChoice
+    if (pendingChoice != null) {
+        PlaylistChoiceDialog(
+            playlists = pendingChoice,
+            onChoose = { pl -> viewModel.continueInPlaylist(pl) },
+            onDismiss = { viewModel.dismissPlaylistChoice() }
+        )
+    }
+
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, containerColor = Color.Transparent) { innerPadding ->
         Box(modifier = Modifier
             .fillMaxSize()
@@ -205,10 +211,13 @@ fun VeloraApp(
         ) {
             HorizontalPager(
                 state = pagerState,
+                // Video player manages its own insets; other pages need space for the pill nav
                 modifier = Modifier.fillMaxSize()
-                    .padding(bottom = if (isVideoFullscreen || isAudioLandscape) 0.dp
-                                     else if (isVideoPlayer) 56.dp
-                                     else 64.dp),
+                    .padding(bottom = when {
+                        isVideoFullscreen || isAudioLandscape -> 0.dp
+                        isVideoPlayer -> 0.dp   // video handles its own nav padding
+                        else -> 56.dp
+                    }),
                 userScrollEnabled = !isVideoFullscreen && !isAudioLandscape
             ) { page ->
                 when (page) {
@@ -295,8 +304,10 @@ fun VeloraApp(
                 visible = selectedTab == 0 && state.currentItem != null,
                 enter = slideInVertically { it } + fadeIn(),
                 exit  = slideOutVertically { it } + fadeOut(),
-                modifier = Modifier.align(Alignment.BottomCenter)
-                    .padding(bottom = 62.dp, start = 12.dp, end = 12.dp)
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 54.dp, start = 12.dp, end = 12.dp)
             ) {
                 MiniPlayer(state = state, onPlayPause = viewModel::togglePlayPause,
                     onClick = { scope.launch { pagerState.animateScrollToPage(1) } })
@@ -363,27 +374,36 @@ private fun LiquidBottomNav(
     hasNowPlaying: Boolean,
     isVideoPlayer: Boolean = false
 ) {
-    Box(
+    // Wrap both gradient and pill in a column that pads for system nav
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.BottomCenter
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Faint gradient so the pill reads against any background
+        // Faint gradient behind pill
         Box(
-            modifier = Modifier.fillMaxWidth().height(56.dp)
+            modifier = Modifier.fillMaxWidth().height(16.dp)
                 .background(Brush.verticalGradient(
                     listOf(Color.Transparent,
-                        if (isVideoPlayer) Color.Black.copy(0.45f)
-                        else MaterialTheme.colorScheme.background.copy(0.90f))
+                        if (isVideoPlayer) Color.Black.copy(0.55f)
+                        else MaterialTheme.colorScheme.background.copy(0.92f))
                 ))
         )
-        // The pill itself — centred, does not stretch full width
+        // The pill + system nav insets
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    if (isVideoPlayer) Color.Black.copy(0.45f)
+                    else MaterialTheme.colorScheme.background.copy(0.92f)
+                )
+                .navigationBarsPadding()
+                .padding(bottom = 6.dp),
+            contentAlignment = Alignment.Center
+        ) {
         LiquidGlassSurface(
             cornerRadius = 999.dp,
             alpha = if (isVideoPlayer) 0.30f else 0.22f,
-            modifier = Modifier
-                .navigationBarsPadding()
-                .padding(bottom = 6.dp)
-                .wrapContentWidth()
+            modifier = Modifier.wrapContentWidth()
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
@@ -414,7 +434,8 @@ private fun LiquidBottomNav(
                 )
             }
         }
-    }
+        } // Box
+    } // Column
 }
 
 @Composable
@@ -565,6 +586,56 @@ private fun NothingPlayingPlaceholder(onBrowse: () -> Unit) {
     }
 }
 
+
+@Composable
+private fun PlaylistChoiceDialog(
+    playlists: List<com.velora.app.model.Playlist>,
+    onChoose: (com.velora.app.model.Playlist) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Continue in which playlist?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "This track is in multiple playlists. Choose which one to continue in.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(0.65f)
+                )
+                Spacer(Modifier.height(4.dp))
+                playlists.forEach { pl ->
+                    LiquidGlassSurface(cornerRadius = 14.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onChoose(pl) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(Icons.Rounded.PlaylistPlay, null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary)
+                            Column(Modifier.weight(1f)) {
+                                Text(pl.name, style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold)
+                                Text("${pl.itemIds.size} tracks",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(0.5f))
+                            }
+                            Icon(Icons.Rounded.ChevronRight, null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(0.4f))
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
 
 @Composable
 private fun ZipImportDialog(

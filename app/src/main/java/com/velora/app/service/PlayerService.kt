@@ -24,10 +24,20 @@ class PlayerService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
 
+    companion object {
+        /**
+         * Direct reference to the underlying ExoPlayer.
+         * Set after onCreate(), cleared in onDestroy().
+         * VideoPlayerScreen binds a PlayerView to this instance.
+         */
+        @Volatile var player: ExoPlayer? = null
+            private set
+    }
+
     override fun onCreate() {
         super.onCreate()
 
-        val player = ExoPlayer.Builder(this)
+        val exo = ExoPlayer.Builder(this)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
@@ -36,12 +46,10 @@ class PlayerService : MediaSessionService() {
                 /* handleAudioFocus= */ true
             )
             .setHandleAudioBecomingNoisy(true)
-            // Loudness normalisation OFF — lets the track play at its native level
             .setSkipSilenceEnabled(false)
             .build()
-
-        // Full volume — ExoPlayer defaults to 1f but be explicit
-        player.volume = 1f
+        exo.volume = 1f
+        player = exo
 
         val activityIntent = PendingIntent.getActivity(
             this, 0,
@@ -64,7 +72,7 @@ class PlayerService : MediaSessionService() {
             .setSessionCommand(skipBackwardCommand)
             .build()
 
-        mediaSession = MediaSession.Builder(this, player)
+        mediaSession = MediaSession.Builder(this, exo)
             .setSessionActivity(activityIntent)
             .setCustomLayout(ImmutableList.of(skipBackwardButton, skipForwardButton))
             .setCallback(object : MediaSession.Callback {
@@ -76,12 +84,12 @@ class PlayerService : MediaSessionService() {
                 ): ListenableFuture<SessionResult> {
                     when (customCommand.customAction) {
                         "ACTION_SKIP_FORWARD" -> {
-                            val pos = player.currentPosition + 10_000L
-                            player.seekTo(pos.coerceAtMost(player.duration.coerceAtLeast(0L)))
+                            val pos = exo.currentPosition + 10_000L
+                            exo.seekTo(pos.coerceAtMost(exo.duration.coerceAtLeast(0L)))
                         }
                         "ACTION_SKIP_BACKWARD" -> {
-                            val pos = player.currentPosition - 10_000L
-                            player.seekTo(pos.coerceAtLeast(0L))
+                            val pos = exo.currentPosition - 10_000L
+                            exo.seekTo(pos.coerceAtLeast(0L))
                         }
                     }
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
@@ -89,9 +97,6 @@ class PlayerService : MediaSessionService() {
             })
             .build()
 
-        // Media3 handles the media notification automatically via MediaSessionService.
-        // Calling setMediaNotificationProvider gives us a live notification with
-        // album art, play/pause, skip — and powers the lock-screen Now Playing widget.
         setMediaNotificationProvider(
             DefaultMediaNotificationProvider.Builder(this)
                 .setNotificationId(1001)
@@ -102,11 +107,8 @@ class PlayerService : MediaSessionService() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        val player = mediaSession?.player
-        if (player != null) {
-            player.stop()
-            player.clearMediaItems()
-        }
+        player?.stop()
+        player?.clearMediaItems()
         stopSelf()
         super.onTaskRemoved(rootIntent)
     }
@@ -114,7 +116,8 @@ class PlayerService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = mediaSession
 
     override fun onDestroy() {
-        mediaSession?.run { player.release(); release(); mediaSession = null }
+        player = null
+        mediaSession?.run { player?.release(); release(); mediaSession = null }
         super.onDestroy()
     }
 }

@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.velora.app.PlayerState
 import com.velora.app.model.MediaItem
+import com.velora.app.model.Playlist
 import com.velora.app.ui.components.*
 import kotlinx.coroutines.delay
 
@@ -58,16 +59,19 @@ fun AudioPlayerScreen(
         }, label = "orientation"
     ) { landscape ->
         if (landscape) {
-            AudioPlayerLandscape(state = state, item = item,
+            AudioPlayerLandscape(
+                state = state, item = item,
                 onPlayPause = onPlayPause, onSkipForward = onSkipForward,
                 onSkipBackward = onSkipBackward, onSeek = onSeek,
                 onSkipSecondsChange = onSkipSecondsChange,
                 onFavouriteToggle = onFavouriteToggle, onShuffleToggle = onShuffleToggle,
                 onQueueToggle = onQueueToggle, onSpeedChange = onSpeedChange,
                 onPlayNext = onPlayNext, onPlayPrev = onPlayPrev,
-                isFavourite = isFavourite, onRotate = onRotate, modifier = modifier)
+                isFavourite = isFavourite, onRotate = onRotate, modifier = modifier
+            )
         } else {
-            AudioPlayerPortrait(state = state, item = item,
+            AudioPlayerPortrait(
+                state = state, item = item,
                 onPlayPause = onPlayPause, onSkipForward = onSkipForward,
                 onSkipBackward = onSkipBackward, onSeek = onSeek,
                 onSkipSecondsChange = onSkipSecondsChange,
@@ -75,7 +79,8 @@ fun AudioPlayerScreen(
                 onFavouriteToggle = onFavouriteToggle, onShuffleToggle = onShuffleToggle,
                 onQueueToggle = onQueueToggle, onSpeedChange = onSpeedChange,
                 onPlayNext = onPlayNext, onPlayPrev = onPlayPrev,
-                isFavourite = isFavourite, onRotate = onRotate, modifier = modifier)
+                isFavourite = isFavourite, onRotate = onRotate, modifier = modifier
+            )
         }
     }
 }
@@ -92,9 +97,9 @@ internal fun AnimatedBackground() {
     val secondary = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
     Box(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(primary, Color.Transparent),
-            center = androidx.compose.ui.geometry.Offset(o1x, o1y), radius = 600f)))
+            center = androidx.compose.ui.geometry.Offset(o1x * 1000f, o1y * 1000f), radius = 600f)))
         Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(secondary, Color.Transparent),
-            center = androidx.compose.ui.geometry.Offset(o2x, o2y), radius = 500f)))
+            center = androidx.compose.ui.geometry.Offset(o2x * 1000f, o2y * 1000f), radius = 500f)))
     }
 }
 
@@ -134,56 +139,46 @@ private fun AudioPlayerPortrait(
     modifier: Modifier = Modifier
 ) {
     val hasLyrics = state.lyrics.isNotEmpty()
-    val isInPlaylist = state.isQueueMode && state.queue.size > 1
+    // Next/Prev enabled only when there is a proper playlist queue (not just shuffle-all)
+    val isInPlaylist = state.isQueueMode && state.queue.size > 1 && state.currentPlaylistId != null
 
-    // Auto-hide bottom bar after 4s of no touch
-    var bottomBarVisible by remember { mutableStateOf(true) }
-    var lastTouchTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(lastTouchTime, state.isPlaying) {
-        if (state.isPlaying) {
-            delay(4000L)
-            if (System.currentTimeMillis() - lastTouchTime >= 4000L) bottomBarVisible = false
-        } else {
-            bottomBarVisible = true
-        }
-    }
-
-    // Speed expanded state — must be closed when tapping anywhere outside
+    // Speed expanded state — fully hoisted
     var speedExpanded by remember { mutableStateOf(false) }
 
     var prevItemId by remember { mutableLongStateOf(item.id) }
     var enterFromRight by remember { mutableStateOf(true) }
     if (prevItemId != item.id) { enterFromRight = item.id > prevItemId; prevItemId = item.id }
 
-    Box(modifier = modifier.fillMaxSize()
-        .pointerInput(Unit) {
-            detectTapGestures {
-                lastTouchTime = System.currentTimeMillis()
-                bottomBarVisible = true
-                speedExpanded = false   // collapse speed panel on any outside tap
+    Box(
+        modifier = modifier.fillMaxSize()
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    // Any tap outside the speed bar collapses it
+                    if (speedExpanded) speedExpanded = false
+                }
             }
-        }) {
+    ) {
         AnimatedBackground()
 
-        // Full-screen content — centered via Column with weight spacers + CenterHorizontally
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
+                .navigationBarsPadding()
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(8.dp))
 
-            // Top row: speed picker + rotate
+            // Top row: speed picker (fully controlled) + rotate
             Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 PlaybackSpeedControl(
                     currentSpeed = state.playbackSpeed,
                     onSpeedChange = onSpeedChange,
-                    onExpandedChange = { speedExpanded = it },
-                    onDismissRequest = { speedExpanded = false }
+                    expanded = speedExpanded,
+                    onExpandedChange = { speedExpanded = it }
                 )
                 AnimatedVisibility(
                     visible = !speedExpanded,
@@ -199,26 +194,22 @@ private fun AudioPlayerPortrait(
                 }
             }
 
-            // Centre everything vertically — weight spacers push art+info to centre
             Spacer(Modifier.weight(0.5f))
 
-            // Album art — centred
+            // Album art
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 AnimatedAlbumArt(item = item, isPlaying = state.isPlaying, sizeDp = 200)
             }
 
             Spacer(Modifier.height(20.dp))
 
-            // Title + artist — centred
+            // Title + artist
             AnimatedContent(targetState = item,
                 transitionSpec = {
                     (slideInHorizontally { if (enterFromRight) it / 2 else -it / 2 } + fadeIn(tween(300))) togetherWith
                     (slideOutHorizontally { if (enterFromRight) -it / 2 else it / 2 } + fadeOut(tween(200)))
                 }, label = "title") { t ->
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+                Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(t.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.onSurface)
@@ -231,7 +222,7 @@ private fun AudioPlayerPortrait(
 
             Spacer(Modifier.weight(0.5f))
 
-            // Scrubber (time bar) with built-in skip zones
+            // Scrubber (skip zones built into the track)
             LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
                 MediaScrubber(
                     positionMs     = state.positionMs,
@@ -245,35 +236,35 @@ private fun AudioPlayerPortrait(
             }
             Spacer(Modifier.height(12.dp))
 
-            // Prev / Controls / Next — always enabled when in playlist
+            // Prev | Controls | Next
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()) {
-                LiquidGlassSurface(cornerRadius = 999.dp,
-                    alpha = if (isInPlaylist) 0.15f else 0.06f,
+                LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
                     modifier = Modifier.size(40.dp)) {
                     IconButton(onClick = { if (isInPlaylist) onPlayPrev() },
                         modifier = Modifier.fillMaxSize(), enabled = isInPlaylist) {
                         Icon(Icons.Rounded.SkipPrevious, "Previous", modifier = Modifier.size(22.dp),
                             tint = if (isInPlaylist) MaterialTheme.colorScheme.onSurface.copy(0.75f)
-                                   else MaterialTheme.colorScheme.onSurface.copy(0.35f))
+                                   else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                     }
                 }
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    PlayerControls(isPlaying = state.isPlaying, skipSeconds = state.skipSeconds,
+                    PlayerControls(
+                        isPlaying = state.isPlaying, skipSeconds = state.skipSeconds,
                         isFavourite = isFavourite, isShuffle = state.isShuffle, isQueueMode = state.isQueueMode,
                         onPlayPause = onPlayPause, onSkipForward = onSkipForward, onSkipBackward = onSkipBackward,
                         onSkipSecondsChange = onSkipSecondsChange, onFavouriteToggle = onFavouriteToggle,
-                        onShuffleToggle = onShuffleToggle, onQueueToggle = onQueueToggle)
+                        onShuffleToggle = onShuffleToggle, onQueueToggle = onQueueToggle
+                    )
                 }
-                LiquidGlassSurface(cornerRadius = 999.dp,
-                    alpha = if (isInPlaylist) 0.15f else 0.06f,
+                LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
                     modifier = Modifier.size(40.dp)) {
                     IconButton(onClick = { if (isInPlaylist) onPlayNext() },
                         modifier = Modifier.fillMaxSize(), enabled = isInPlaylist) {
                         Icon(Icons.Rounded.SkipNext, "Next", modifier = Modifier.size(22.dp),
                             tint = if (isInPlaylist) MaterialTheme.colorScheme.onSurface.copy(0.75f)
-                                   else MaterialTheme.colorScheme.onSurface.copy(0.35f))
+                                   else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                     }
                 }
             }
@@ -291,7 +282,6 @@ private fun AudioPlayerPortrait(
                         fontSize = 12.sp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                 }
                 if (hasLyrics) {
-                    Spacer(Modifier.width(4.dp))
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.14f) {
                         IconButton(onClick = onRemoveLyrics, modifier = Modifier.size(34.dp)) {
                             Icon(Icons.Rounded.Close, "Remove lyrics", modifier = Modifier.size(16.dp),
@@ -301,8 +291,7 @@ private fun AudioPlayerPortrait(
                 }
             }
 
-            // Lyrics — bottom-up (UP direction = scrolling list, lines come from bottom)
-            // Always visible in portrait when lyrics exist
+            // Lyrics — UP direction, always visible in portrait when present
             if (hasLyrics) {
                 LyricsOverlay(
                     lyrics = state.lyrics,
@@ -333,19 +322,17 @@ private fun AudioPlayerLandscape(
     modifier: Modifier = Modifier
 ) {
     val hasLyrics = state.lyrics.isNotEmpty()
-    val isInPlaylist = state.isQueueMode && state.queue.size > 1
+    val isInPlaylist = state.isQueueMode && state.queue.size > 1 && state.currentPlaylistId != null
     var speedExpanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()
-        .pointerInput(Unit) {
-            detectTapGestures { speedExpanded = false }
-        }) {
+        .pointerInput(Unit) { detectTapGestures { if (speedExpanded) speedExpanded = false } }) {
         AnimatedBackground()
         Row(modifier = Modifier.fillMaxSize().systemBarsPadding()
             .padding(horizontal = 20.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp)) {
 
-            // LEFT: art + title + artist + lyrics (LEFT_TO_RIGHT direction)
+            // LEFT: art + title + artist + lyrics (UP direction)
             Column(modifier = Modifier.weight(0.46f).fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Top) {
@@ -360,13 +347,14 @@ private fun AudioPlayerLandscape(
                 Text(item.artist, style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center, maxLines = 1)
+                // Lyrics in landscape audio: UP direction (bottom-to-top)
                 if (hasLyrics) {
                     Spacer(Modifier.height(10.dp))
                     LyricsOverlay(
                         lyrics = state.lyrics,
                         activeIndex = state.activeLyricIndex,
-                        singleLine = true,
-                        slideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
+                        singleLine = false,
+                        slideDirection = LyricsSlideDirection.UP,
                         modifier = Modifier.fillMaxWidth().weight(1f)
                     )
                 } else {
@@ -374,7 +362,7 @@ private fun AudioPlayerLandscape(
                 }
             }
 
-            // RIGHT: speed + rotate | prev/controls/next | scrubber at BOTTOM
+            // RIGHT: speed + rotate | prev/controls/next | scrubber
             Column(modifier = Modifier.weight(0.54f).fillMaxHeight(),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally) {
@@ -385,8 +373,8 @@ private fun AudioPlayerLandscape(
                     PlaybackSpeedControl(
                         currentSpeed = state.playbackSpeed,
                         onSpeedChange = onSpeedChange,
-                        onExpandedChange = { speedExpanded = it },
-                        onDismissRequest = { speedExpanded = false }
+                        expanded = speedExpanded,
+                        onExpandedChange = { speedExpanded = it }
                     )
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onRotate) {
@@ -398,39 +386,37 @@ private fun AudioPlayerLandscape(
 
                 Spacer(Modifier.weight(1f))
 
-                // Prev + controls + next
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    LiquidGlassSurface(cornerRadius = 999.dp,
-                        alpha = if (isInPlaylist) 0.15f else 0.06f,
+                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
                         modifier = Modifier.size(36.dp)) {
                         IconButton(onClick = { if (isInPlaylist) onPlayPrev() },
                             modifier = Modifier.fillMaxSize(), enabled = isInPlaylist) {
                             Icon(Icons.Rounded.SkipPrevious, "Previous", modifier = Modifier.size(20.dp),
                                 tint = if (isInPlaylist) MaterialTheme.colorScheme.onSurface.copy(0.75f)
-                                       else MaterialTheme.colorScheme.onSurface.copy(0.35f))
+                                       else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                         }
                     }
-                    PlayerControls(isPlaying = state.isPlaying, skipSeconds = state.skipSeconds,
+                    PlayerControls(
+                        isPlaying = state.isPlaying, skipSeconds = state.skipSeconds,
                         isFavourite = isFavourite, isShuffle = state.isShuffle, isQueueMode = state.isQueueMode,
                         onPlayPause = onPlayPause, onSkipForward = onSkipForward, onSkipBackward = onSkipBackward,
                         onSkipSecondsChange = onSkipSecondsChange, onFavouriteToggle = onFavouriteToggle,
-                        onShuffleToggle = onShuffleToggle, onQueueToggle = onQueueToggle)
-                    LiquidGlassSurface(cornerRadius = 999.dp,
-                        alpha = if (isInPlaylist) 0.15f else 0.06f,
+                        onShuffleToggle = onShuffleToggle, onQueueToggle = onQueueToggle
+                    )
+                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
                         modifier = Modifier.size(36.dp)) {
                         IconButton(onClick = { if (isInPlaylist) onPlayNext() },
                             modifier = Modifier.fillMaxSize(), enabled = isInPlaylist) {
                             Icon(Icons.Rounded.SkipNext, "Next", modifier = Modifier.size(20.dp),
                                 tint = if (isInPlaylist) MaterialTheme.colorScheme.onSurface.copy(0.75f)
-                                       else MaterialTheme.colorScheme.onSurface.copy(0.35f))
+                                       else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                         }
                     }
                 }
 
                 Spacer(Modifier.height(4.dp))
 
-                // Scrubber
                 LiquidGlassSurface(cornerRadius = 16.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
                     MediaScrubber(
                         positionMs     = state.positionMs,

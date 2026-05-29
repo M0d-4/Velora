@@ -56,7 +56,11 @@ data class PlayerState(
     val showFavouriteToast: Boolean = false,
     val isLandscape: Boolean = false,
     val playbackSpeed: Float = 1f,
-    val extraMediaList: List<MediaItem> = emptyList()
+    val extraMediaList: List<MediaItem> = emptyList(),
+    // Non-null only when playing from an actual playlist (not shuffle-all)
+    val currentPlaylistId: Long? = null,
+    // Non-null when item belongs to >1 playlist and user presses next/prev
+    val pendingPlaylistChoice: List<Playlist>? = null
 )
 
 enum class FilterTab { ALL, AUDIO, VIDEO, PLAYLISTS }
@@ -181,7 +185,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.currentItem?.isVideo == true) return
         releaseVisualizer()
         try {
-            val vis = Visualizer(0)
+            // Use the ExoPlayer's actual audio session id so the Visualizer
+            // doesn't interfere with the audio output level
+            val audioSessionId = com.velora.app.service.PlayerService.player?.audioSessionId ?: 0
+            val vis = Visualizer(audioSessionId)
             vis.captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(1024)
             vis.setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
                 override fun onWaveFormDataCapture(v: Visualizer, waveform: ByteArray, samplingRate: Int) {
@@ -291,18 +298,45 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun playNext() = advanceQueue(true)
     fun playPrev() = advanceQueue(false)
-    private fun advanceQueue(forward: Boolean = true) {
-        val s = _state.value; if (!s.isQueueMode || s.queue.isEmpty()) return
-        val nextIdx = if (forward) {
-            if (s.isShuffle) {
-                // Pick a random index that is NOT the current one (if queue has > 1 item)
-                val candidates = s.queue.indices.filter { it != s.queueIndex }
-                if (candidates.isEmpty()) s.queueIndex else candidates.random()
-            } else (s.queueIndex + 1) % s.queue.size
+
+    /** Called when user picks a playlist from the selector dialog. */
+    fun continueInPlaylist(playlist: Playlist, forward: Boolean = true) {
+        _state.update { it.copy(pendingPlaylistChoice = null) }
+        val s = _state.value; val allMedia = s.mediaList + s.extraMediaList
+        val items = playlist.itemIds.mapNotNull { id -> allMedia.firstOrNull { it.id == id } }
+        if (items.isEmpty()) return
+        val queue = if (s.isShuffle) items.shuffled() else items
+        val currentId = s.currentItem?.id
+        val startIdx = if (s.isShuffle) {
+            queue.indices.filter { queue[it].id != currentId }.let { if (it.isEmpty()) 0 else it.random() }
         } else {
-            if (s.queueIndex > 0) s.queueIndex - 1 else s.queue.size - 1
+            val idx = queue.indexOfFirst { it.id == currentId }
+            if (forward) (idx + 1) % queue.size else if (idx > 0) idx - 1 else queue.size - 1
+        }
+        _state.update { it.copy(isQueueMode = true, queue = queue, queueIndex = startIdx, currentPlaylistId = playlist.id) }
+        playItem(queue[startIdx])
+    }
+
+    fun dismissPlaylistChoice() { _state.update { it.copy(pendingPlaylistChoice = null) } }
+
+    private fun advanceQueue(forward: Boolean = true) {
+        val s = _state.value
+        if (!s.isQueueMode || s.queue.isEmpty() || s.currentPlaylistId == null) return
+        // If shuffle, pick a different random track within same playlist
+        val nextIdx = if (s.isShuffle) {
+            val candidates = s.queue.indices.filter { it != s.queueIndex }
+            if (candidates.isEmpty()) s.queueIndex else candidates.random()
+        } else {
+            if (forward) (s.queueIndex + 1) % s.queue.size
+            else if (s.queueIndex > 0) s.queueIndex - 1 else s.queue.size - 1
         }
         val nextItem = s.queue.getOrNull(nextIdx) ?: return
+        // Check if next item belongs to multiple playlists: if so, prompt
+        val containingPlaylists = s.playlists.filter { !it.isFavourites && it.itemIds.contains(nextItem.id) }
+        if (containingPlaylists.size > 1) {
+            _state.update { it.copy(pendingPlaylistChoice = containingPlaylists, queueIndex = nextIdx) }
+            return
+        }
         _state.update { it.copy(queueIndex = nextIdx) }; playItem(nextItem)
     }
 
@@ -339,7 +373,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val items = playlist.itemIds.mapNotNull { id -> allMedia.firstOrNull { it.id == id } }
         if (items.isEmpty()) return
         val shuffled = if (s.isShuffle) items.shuffled() else items
-        _state.update { it.copy(isQueueMode = true, queue = shuffled, queueIndex = 0) }; playItem(shuffled[0])
+        _state.update { it.copy(isQueueMode = true, queue = shuffled, queueIndex = 0, currentPlaylistId = playlist.id) }
+        playItem(shuffled[0])
     }
     fun mergePlaylists(sourceIds: List<Long>, newName: String, keepOriginals: Boolean = false) {
         val s = _state.value
@@ -503,10 +538,24 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun removeLyrics() {
-        _state.update { s ->
-            val updatedItem = s.currentItem?.copy(lyricsPath = null) ?: return
-            s.copy(currentItem = updatedItem, lyrics = emptyList(), activeLyricIndex = -1)
+        val item = _state.value.currentItem ?: return
+        // Delete the file if it lives in our stable lyrics dir
+        item.lyricsPath?.let { path ->
+            try { File(path).delete() } catch (_: Exception) {}
         }
+        val updatedItem = item.copy(lyricsPath = null)
+        _state.update { s ->
+            val updatedMedia = s.mediaList.map { m -> if (m.id == item.id) m.copy(lyricsPath = null) else m }
+            val updatedExtra = s.extraMediaList.map { m -> if (m.id == item.id) m.copy(lyricsPath = null) else m }
+            s.copy(
+                currentItem  = updatedItem,
+                lyrics       = emptyList(),
+                activeLyricIndex = -1,
+                mediaList    = updatedMedia,
+                extraMediaList = updatedExtra
+            )
+        }
+        persistData()
     }
 
     /** Extract title, artist and embedded art from a media file */

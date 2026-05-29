@@ -5,7 +5,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -27,37 +26,25 @@ import androidx.compose.ui.unit.sp
 private val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
 
 /**
- * Compact inline speed picker. Expands/collapses with animation.
- * Tapping anywhere outside (via onDismissRequest) collapses it.
+ * Fully-controlled speed picker — caller owns expanded state.
+ * Pass expanded=true/false and onExpandedChange to open/close it.
+ * The parent must set expanded=false when tapping elsewhere.
  */
 @Composable
 fun PlaybackSpeedControl(
     currentSpeed: Float,
     onSpeedChange: (Float) -> Unit,
-    isVideoOverlay: Boolean = false,
-    onExpandedChange: ((Boolean) -> Unit)? = null,
-    onDismissRequest: (() -> Unit)? = null
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    isVideoOverlay: Boolean = false
 ) {
-    var expanded by remember { mutableStateOf(false) }
-
-    fun setExpanded(v: Boolean) {
-        expanded = v
-        onExpandedChange?.invoke(v)
-    }
-
-    // Allow parent to force-close via onDismissRequest
-    LaunchedEffect(onDismissRequest) {
-        // no-op: onDismissRequest is called by parent tap handler
-    }
-
     AnimatedContent(
         targetState = expanded,
         transitionSpec = {
-            if (targetState) {
+            if (targetState)
                 (fadeIn(tween(200)) + expandHorizontally(tween(220))) togetherWith fadeOut(tween(150))
-            } else {
+            else
                 fadeIn(tween(200)) togetherWith (fadeOut(tween(150)) + shrinkHorizontally(tween(200)))
-            }
         }, label = "speedPanel"
     ) { isExpanded ->
         if (!isExpanded) {
@@ -70,27 +57,35 @@ fun PlaybackSpeedControl(
             ) {
                 Row(
                     modifier = Modifier
-                        .clickable(interactionSource = interaction, indication = null) { setExpanded(true) }
+                        .clickable(interactionSource = interaction, indication = null) {
+                            onExpandedChange(true)
+                        }
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    Icon(Icons.Rounded.Speed, null, modifier = Modifier.size(14.dp),
-                        tint = if (isVideoOverlay) Color.White.copy(0.85f) else MaterialTheme.colorScheme.primary)
-                    Text(speedLabel(currentSpeed), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                        color = if (isVideoOverlay) Color.White.copy(0.9f) else MaterialTheme.colorScheme.primary)
+                    Icon(
+                        Icons.Rounded.Speed, null,
+                        modifier = Modifier.size(14.dp),
+                        tint = if (isVideoOverlay) Color.White.copy(0.85f)
+                               else MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        speedLabel(currentSpeed),
+                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        color = if (isVideoOverlay) Color.White.copy(0.9f)
+                                else MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         } else {
-            // Consume horizontal drag so the pager doesn't intercept
             LiquidGlassSurface(
                 cornerRadius = 999.dp,
                 alpha = if (isVideoOverlay) 0.28f else 0.18f,
                 modifier = Modifier
                     .wrapContentWidth()
-                    .pointerInput(Unit) {
-                        detectHorizontalDragGestures { _, _ -> /* consume */ }
-                    }
+                    // Consume horizontal drag so pager doesn't intercept
+                    .pointerInput(Unit) { detectHorizontalDragGestures { _, _ -> } }
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
@@ -105,7 +100,6 @@ fun PlaybackSpeedControl(
                         )
                         val interaction = remember { MutableInteractionSource() }
                         val pressed by interaction.collectIsPressedAsState()
-
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(999.dp))
@@ -116,7 +110,7 @@ fun PlaybackSpeedControl(
                                 )
                                 .clickable(interactionSource = interaction, indication = null) {
                                     onSpeedChange(speed)
-                                    setExpanded(false)
+                                    onExpandedChange(false)
                                 }
                                 .graphicsLayer { val s = if (pressed) 0.88f else 1f; scaleX = s; scaleY = s }
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
@@ -140,31 +134,8 @@ fun PlaybackSpeedControl(
     }
 }
 
-// Expose a way to close the speed panel externally
-@Composable
-fun PlaybackSpeedControlWithDismiss(
-    currentSpeed: Float,
-    onSpeedChange: (Float) -> Unit,
-    isVideoOverlay: Boolean = false,
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit
-) {
-    PlaybackSpeedControl(
-        currentSpeed = currentSpeed,
-        onSpeedChange = onSpeedChange,
-        isVideoOverlay = isVideoOverlay,
-        onExpandedChange = onExpandedChange,
-        onDismissRequest = { onExpandedChange(false) }
-    )
-}
-
 private fun speedLabel(speed: Float): String = when (speed) {
-    0.5f  -> "0.5×"
-    0.75f -> "0.75×"
-    1f    -> "1×"
-    1.25f -> "1.25×"
-    1.5f  -> "1.5×"
-    1.75f -> "1.75×"
-    2f    -> "2×"
+    0.5f  -> "0.5×"; 0.75f -> "0.75×"; 1f -> "1×"
+    1.25f -> "1.25×"; 1.5f -> "1.5×"; 1.75f -> "1.75×"; 2f -> "2×"
     else  -> "${speed}×"
 }

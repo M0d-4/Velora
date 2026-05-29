@@ -34,6 +34,17 @@ import com.velora.app.model.MediaItem
 import com.velora.app.model.Playlist
 import com.velora.app.ui.components.LiquidGlassSurface
 import com.velora.app.util.MediaRepository
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -145,7 +156,7 @@ fun MediaListScreen(
                 }
             }
             else -> LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 200.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 160.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(filteredItems, key = { it.id }) { item ->
                     MediaRow(item = item,
@@ -381,7 +392,7 @@ private fun RenamePlaylistDialog(currentName: String, onRename: (String) -> Unit
 private fun PlaylistsView(playlists: List<Playlist>, mediaList: List<MediaItem>,
     onPlayPlaylist: (Playlist) -> Unit, onDeletePlaylist: (Long) -> Unit,
     onRenamePlaylist: (Long, String) -> Unit, modifier: Modifier = Modifier) {
-    LazyColumn(modifier = modifier, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 200.dp),
+    LazyColumn(modifier = modifier, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 160.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items(playlists, key = { it.id }) { playlist ->
             PlaylistRow(playlist = playlist, mediaList = mediaList, onPlay = { onPlayPlaylist(playlist) },
@@ -498,11 +509,57 @@ private fun MediaRow(
                     Text("$dur $unit", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(0.45f))
                 }
             }
-            IconButton(onClick = onFavourite, modifier = Modifier.size(36.dp)) {
-                Icon(if (isFavourite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, "Favorite",
-                    modifier = Modifier.size(18.dp),
-                    tint = if (isFavourite) Color(0xFFFF3B6B) else MaterialTheme.colorScheme.onSurface.copy(0.35f))
-            }
+            LibraryHeartButton(isFavourite = isFavourite, onToggle = onFavourite)
+        }
+    }
+}
+
+// ── Library heart button with red splash animation ───────────────────────────
+@Composable
+private fun LibraryHeartButton(isFavourite: Boolean, onToggle: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val heartScale = remember { Animatable(1f) }
+    val splashScale = remember { Animatable(0f) }
+    val splashAlpha = remember { Animatable(0f) }
+    val tint by animateColorAsState(
+        targetValue = if (isFavourite) Color(0xFFFF3B6B)
+                      else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+        animationSpec = tween(260), label = "heartColor"
+    )
+    Box(modifier = Modifier.size(36.dp), contentAlignment = Alignment.Center) {
+        // Red splash ripple
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .graphicsLayer {
+                    scaleX = splashScale.value; scaleY = splashScale.value; alpha = splashAlpha.value
+                }
+                .background(Color(0xFFFF3B6B).copy(alpha = 0.35f), CircleShape)
+        )
+        IconButton(
+            onClick = {
+                onToggle()
+                scope.launch {
+                    heartScale.animateTo(1.45f, tween(110, easing = FastOutSlowInEasing))
+                    heartScale.animateTo(1f, spring(stiffness = Spring.StiffnessHigh))
+                }
+                if (!isFavourite) {
+                    scope.launch {
+                        splashScale.snapTo(0f); splashAlpha.snapTo(0.9f)
+                        splashScale.animateTo(1.8f, tween(350, easing = FastOutSlowInEasing))
+                        splashAlpha.animateTo(0f, tween(300))
+                        splashScale.snapTo(0f)
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Icon(
+                if (isFavourite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                "Favorite",
+                modifier = Modifier.size(18.dp).scale(heartScale.value),
+                tint = tint
+            )
         }
     }
 }

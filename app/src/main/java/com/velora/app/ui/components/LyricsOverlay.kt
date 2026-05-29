@@ -42,8 +42,9 @@ fun LyricsOverlay(
             AnimatedContent(
                 targetState = activeIndex,
                 transitionSpec = {
-                    (slideInHorizontally(tween(600)) { it / 2 } + fadeIn(tween(600))) togetherWith
-                    (slideOutHorizontally(tween(400)) { -it / 2 } + fadeOut(tween(300)))
+                    // Enter from left, exit to right  
+                    (slideInHorizontally(tween(600)) { -it / 2 } + fadeIn(tween(600))) togetherWith
+                    (slideOutHorizontally(tween(400)) { it / 2 } + fadeOut(tween(300)))
                 },
                 label = "lyric_single"
             ) { idx ->
@@ -104,8 +105,9 @@ fun LyricsOverlay(
                                     (slideInVertically(tween(350)) { it / 2 } + fadeIn(tween(300))) togetherWith
                                     (slideOutVertically(tween(250)) { -it / 2 } + fadeOut(tween(200)))
                                 LyricsSlideDirection.LEFT_TO_RIGHT ->
-                                    (slideInHorizontally(tween(300)) { it / 3 } + fadeIn(tween(300))) togetherWith
-                                    fadeOut(tween(200))
+                                    // Line enters from left (positive = enters from right, negative = from left)
+                                    (slideInHorizontally(tween(350)) { -it / 3 } + fadeIn(tween(300))) togetherWith
+                                    (slideOutHorizontally(tween(250)) { it / 3 } + fadeOut(tween(200)))
                             }
                         } else {
                             fadeIn(tween(200)) togetherWith fadeOut(tween(200))

@@ -8,17 +8,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,15 +29,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * iOS 26-style scrubber with tap-zone skip buttons built into each end of the bar.
+ * Scrubber with VISIBLE rewind / forward icon buttons flanking the track.
  *
- * • Tap/drag the track itself → seek
- * • Tap the left ~20% of the track area → rewind [skipSeconds]
- * • Tap the right ~20% of the track area → fast-forward [skipSeconds]
- * Both skip zones flash a brief icon animation so the user gets visual feedback.
+ * Layout:
+ *   [⏮ skip] ──────── track ──────── [skip ⏭]
+ *            0:00                 3:45
  *
- * [skipSeconds] and [onSkipForward]/[onSkipBackward] are optional; if omitted the
- * scrubber behaves exactly as before (seek-only).
+ * Also supports tap-zone skip on the track ends (same 22% zones as before),
+ * giving double the chance to skip.
  */
 @Composable
 fun MediaScrubber(
@@ -46,159 +46,150 @@ fun MediaScrubber(
     modifier: Modifier = Modifier,
     skipSeconds: Int = 10,
     onSkipForward: (() -> Unit)? = null,
-    onSkipBackward: (() -> Unit)? = null
+    onSkipBackward: (() -> Unit)? = null,
+    isVideoOverlay: Boolean = false   // true → white tints for dark video bg
 ) {
     val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
 
-    var isDragging      by remember { mutableStateOf(false) }
-    var dragProgress    by remember { mutableFloatStateOf(progress) }
+    var isDragging   by remember { mutableStateOf(false) }
+    var dragProgress by remember { mutableFloatStateOf(progress) }
 
-    // Flash states for skip feedback icons
-    var rewindFlash     by remember { mutableStateOf(false) }
-    var forwardFlash    by remember { mutableStateOf(false) }
-    val rewindAlpha     by animateFloatAsState(if (rewindFlash) 1f else 0f,
-        tween(if (rewindFlash) 80 else 350), label = "rAlpha")
-    val forwardAlpha    by animateFloatAsState(if (forwardFlash) 1f else 0f,
-        tween(if (forwardFlash) 80 else 350), label = "fAlpha")
+    // Flash states
+    var rewindFlash  by remember { mutableStateOf(false) }
+    var forwardFlash by remember { mutableStateOf(false) }
+    val rewindScale  by animateFloatAsState(if (rewindFlash) 1.25f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "rScale")
+    val forwardScale by animateFloatAsState(if (forwardFlash) 1.25f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "fScale")
 
     val scope = rememberCoroutineScope()
 
-    fun flashRewind() {
+    fun doRewind() {
         if (onSkipBackward == null) return
         rewindFlash = true
-        scope.launch { delay(400); rewindFlash = false }
+        scope.launch { delay(300); rewindFlash = false }
         onSkipBackward()
     }
-
-    fun flashForward() {
+    fun doForward() {
         if (onSkipForward == null) return
         forwardFlash = true
-        scope.launch { delay(400); forwardFlash = false }
+        scope.launch { delay(300); forwardFlash = false }
         onSkipForward()
     }
 
-    // Tap-zone width: 22% of track on each side
     val tapZoneFraction = 0.22f
-
     val trackHeightDp by animateDpAsState(if (isDragging) 6.dp else 3.dp, label = "track")
     val thumbWidthDp  by animateDpAsState(if (isDragging) 20.dp else 12.dp, label = "thumb")
     val thumbHeightDp by animateDpAsState(if (isDragging) 20.dp else 12.dp, label = "thumbH")
 
-    val primary        = MaterialTheme.colorScheme.primary
-    val surfaceVariant = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+    val primary        = if (isVideoOverlay) Color.White else MaterialTheme.colorScheme.primary
+    val trackBg        = if (isVideoOverlay) Color.White.copy(0.25f) else MaterialTheme.colorScheme.onSurface.copy(0.18f)
+    val iconTint       = if (isVideoOverlay) Color.White.copy(0.85f) else MaterialTheme.colorScheme.onSurface.copy(0.75f)
+    val timeTint       = if (isVideoOverlay) Color.White.copy(0.7f) else MaterialTheme.colorScheme.onSurface.copy(0.65f)
 
     Column(modifier = modifier) {
-        // ── Track + thumb + skip zones ─────────────────────────────────────
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(40.dp)   // taller hit area so skip zones are easy to tap
-                .pointerInput(durationMs, onSkipForward, onSkipBackward) {
-                    detectTapGestures { offset ->
-                        val frac = offset.x / size.width
-                        when {
-                            frac <= tapZoneFraction && onSkipBackward != null -> flashRewind()
-                            frac >= (1f - tapZoneFraction) && onSkipForward != null -> flashForward()
-                            else -> {
-                                val p = frac.coerceIn(0f, 1f)
-                                onSeek((p * durationMs).toLong())
-                            }
-                        }
-                    }
-                }
-                .pointerInput(durationMs) {
-                    detectHorizontalDragGestures(
-                        onDragStart = { isDragging = true },
-                        onDragEnd   = {
-                            isDragging = false
-                            onSeek((dragProgress * durationMs).toLong())
-                        },
-                        onDragCancel = { isDragging = false },
-                        onHorizontalDrag = { change, _ ->
-                            dragProgress = (change.position.x / size.width).coerceIn(0f, 1f)
-                        }
-                    )
-                },
-            contentAlignment = Alignment.CenterStart
+        // ── Row: [rewind btn] [track] [forward btn] ────────────────────────
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            val displayProgress = if (isDragging) dragProgress else progress
-
-            // Track background
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(trackHeightDp)
-                    .align(Alignment.Center)
-                    .drawBehind {
-                        drawRoundRect(color = surfaceVariant, cornerRadius = CornerRadius(size.height / 2f))
-                        drawRoundRect(
-                            color = primary,
-                            size  = Size(size.width * displayProgress, size.height),
-                            cornerRadius = CornerRadius(size.height / 2f)
-                        )
-                    }
-            )
-
-            // Thumb pill
-            Box(
-                modifier = Modifier
-                    .offset(x = (-thumbWidthDp / 2))
-                    .align(Alignment.CenterStart)
-                    .fillMaxWidth(displayProgress)
-                    .wrapContentWidth(Alignment.End)
-                    .size(thumbWidthDp, thumbHeightDp)
-                    .drawBehind {
-                        drawRoundRect(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(Color.White, Color.White.copy(alpha = 0.85f))
-                            ),
-                            cornerRadius = CornerRadius(size.minDimension / 2f)
-                        )
-                        drawRoundRect(
-                            color    = Color.White.copy(alpha = 0.5f),
-                            topLeft  = Offset(0f, 0f),
-                            size     = Size(size.width, size.height * 0.4f),
-                            cornerRadius = CornerRadius(size.minDimension / 2f)
-                        )
-                    }
-            )
-
-            // Left skip flash icon
+            // Rewind button
             if (onSkipBackward != null) {
-                Row(
+                IconButton(
+                    onClick = ::doRewind,
                     modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = 4.dp)
-                        .alpha(rewindAlpha),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        .size(36.dp)
+                        .graphicsLayer { scaleX = rewindScale; scaleY = rewindScale }
                 ) {
-                    Icon(Icons.Rounded.FastRewind, null,
-                        modifier = Modifier.size(14.dp), tint = primary)
-                    Text("-${skipSeconds}s", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = primary)
+                    Icon(Icons.Rounded.FastRewind, "-${skipSeconds}s",
+                        modifier = Modifier.size(20.dp), tint = iconTint)
                 }
             }
 
-            // Right skip flash icon
-            if (onSkipForward != null) {
-                Row(
+            // Track
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .pointerInput(durationMs, onSkipForward, onSkipBackward) {
+                        detectTapGestures { offset ->
+                            val frac = offset.x / size.width
+                            when {
+                                frac <= tapZoneFraction && onSkipBackward != null -> doRewind()
+                                frac >= (1f - tapZoneFraction) && onSkipForward != null -> doForward()
+                                else -> onSeek(((frac).coerceIn(0f, 1f) * durationMs).toLong())
+                            }
+                        }
+                    }
+                    .pointerInput(durationMs) {
+                        detectHorizontalDragGestures(
+                            onDragStart = { isDragging = true },
+                            onDragEnd   = {
+                                isDragging = false
+                                onSeek((dragProgress * durationMs).toLong())
+                            },
+                            onDragCancel = { isDragging = false },
+                            onHorizontalDrag = { change, _ ->
+                                dragProgress = (change.position.x / size.width).coerceIn(0f, 1f)
+                            }
+                        )
+                    },
+                contentAlignment = Alignment.CenterStart
+            ) {
+                val displayProgress = if (isDragging) dragProgress else progress
+
+                // Track background
+                Box(
                     modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 4.dp)
-                        .alpha(forwardAlpha),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        .fillMaxWidth()
+                        .height(trackHeightDp)
+                        .align(Alignment.Center)
+                        .drawBehind {
+                            drawRoundRect(color = trackBg, cornerRadius = CornerRadius(size.height / 2f))
+                            drawRoundRect(color = primary, size = Size(size.width * displayProgress, size.height),
+                                cornerRadius = CornerRadius(size.height / 2f))
+                        }
+                )
+
+                // Thumb pill
+                Box(
+                    modifier = Modifier
+                        .offset(x = (-thumbWidthDp / 2))
+                        .align(Alignment.CenterStart)
+                        .fillMaxWidth(displayProgress)
+                        .wrapContentWidth(Alignment.End)
+                        .size(thumbWidthDp, thumbHeightDp)
+                        .drawBehind {
+                            drawRoundRect(
+                                brush = Brush.verticalGradient(listOf(Color.White, Color.White.copy(0.85f))),
+                                cornerRadius = CornerRadius(size.minDimension / 2f)
+                            )
+                            drawRoundRect(color = Color.White.copy(0.5f),
+                                topLeft = Offset(0f, 0f),
+                                size = Size(size.width, size.height * 0.4f),
+                                cornerRadius = CornerRadius(size.minDimension / 2f))
+                        }
+                )
+            }
+
+            // Forward button
+            if (onSkipForward != null) {
+                IconButton(
+                    onClick = ::doForward,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .graphicsLayer { scaleX = forwardScale; scaleY = forwardScale }
                 ) {
-                    Text("+${skipSeconds}s", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = primary)
-                    Icon(Icons.Rounded.FastForward, null,
-                        modifier = Modifier.size(14.dp), tint = primary)
+                    Icon(Icons.Rounded.FastForward, "+${skipSeconds}s",
+                        modifier = Modifier.size(20.dp), tint = iconTint)
                 }
             }
         }
 
         // ── Time labels ────────────────────────────────────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = if (onSkipBackward != null) 40.dp else 0.dp, vertical = 0.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
@@ -206,16 +197,12 @@ fun MediaScrubber(
                     if (isDragging) (dragProgress * durationMs).toLong() else positionMs
                 ),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                fontWeight = FontWeight.Medium,
-                fontSize = 11.sp
+                color = timeTint, fontWeight = FontWeight.Medium, fontSize = 11.sp
             )
             Text(
                 text = MediaRepository.formatDuration(durationMs),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                fontWeight = FontWeight.Medium,
-                fontSize = 11.sp
+                color = timeTint, fontWeight = FontWeight.Medium, fontSize = 11.sp
             )
         }
     }
