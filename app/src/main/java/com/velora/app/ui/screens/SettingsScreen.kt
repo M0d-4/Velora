@@ -69,24 +69,10 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Playback ──────────────────────────────────────────────────
-            SettingsSectionHeader("Playback")
-            LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.14f, modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                    SettingsInfoRow(Icons.Rounded.Speed, "Playback Speeds", "0.5× – 2×")
-                }
-            }
-
             // ── About ─────────────────────────────────────────────────────
             SettingsSectionHeader("About")
             LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.14f, modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                    SettingsInfoRow(Icons.Rounded.Info,       "App Version",    SETTINGS_APP_VERSION)
-                    SettingsDivider()
-                    SettingsInfoRow(Icons.Rounded.MusicNote,  "App Name",       "Velora")
-                    SettingsDivider()
-                    SettingsInfoRow(Icons.Rounded.Android,    "Build",          "Release")
-                    SettingsDivider()
                     SettingsInfoRow(Icons.Rounded.Lyrics,     "Lyrics Formats", ".lrc · .srt")
                     SettingsDivider()
                     SettingsInfoRow(Icons.Rounded.AudioFile,  "Audio Formats",  "mp3 · flac · ogg · m4a · aac · wav")
@@ -95,7 +81,21 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(Modifier.navigationBarsPadding().height(80.dp))
+            // ── Version stamp — appears at the foot of the scroll area ──
+            Spacer(Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Velora $SETTINGS_APP_VERSION",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                )
+            }
         }
     }
 }

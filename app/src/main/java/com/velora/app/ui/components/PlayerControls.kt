@@ -1,6 +1,7 @@
 package com.velora.app.ui.components
 
 import androidx.compose.animation.*
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +30,9 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
 // ── PlayerControls ────────────────────────────────────────────────────────────
+// NOTE: No rewind/forward SkipButtons here — those live inside MediaScrubber.
+// This composable only contains: shuffle/queue row, skip-seconds + heart pill,
+// and the play/pause button.
 @Composable
 fun PlayerControls(
     isPlaying: Boolean,
@@ -95,16 +99,12 @@ fun PlayerControls(
             onFavouriteToggle = onFavouriteToggle
         )
 
-        // Row 3: Rewind | Play/Pause | Forward
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            SkipButton(icon = Icons.Rounded.FastRewind, desc = "Rewind", onClick = onSkipBackward)
-            AnimatedPlayPauseButton(isPlaying = isPlaying, onClick = onPlayPause)
-            SkipButton(icon = Icons.Rounded.FastForward, desc = "Forward", onClick = onSkipForward)
-        }
+        // Row 3: Play/Pause only — skip buttons are inside MediaScrubber
+        AnimatedPlayPauseButton(isPlaying = isPlaying, onClick = onPlayPause)
     }
 }
 
-// ── Skip + Heart pill with horizontal drag to change skip seconds ─────────────
+// ── Skip + Heart pill ─────────────────────────────────────────────────────────
 @Composable
 fun SkipAndHeartPill(
     skipSeconds: Int,
@@ -114,7 +114,6 @@ fun SkipAndHeartPill(
 ) {
     val options = listOf(5, 10)
     val heartScale = remember { Animatable(1f) }
-    // Red splash ripple
     val splashScale = remember { Animatable(0f) }
     val splashAlpha = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -122,7 +121,6 @@ fun SkipAndHeartPill(
         targetValue = if (isFavourite) Color(0xFFFF3B6B) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
         animationSpec = tween(280), label = "heartColor"
     )
-
     var dragAccum by remember { mutableFloatStateOf(0f) }
 
     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.18f) {
@@ -175,36 +173,30 @@ fun SkipAndHeartPill(
             val heartInteraction = remember { MutableInteractionSource() }
             val heartPressed by heartInteraction.collectIsPressedAsState()
 
-            // Heart button with red splash animation
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Red splash ripple behind the icon
+                // Red splash ripple
                 Box(
                     modifier = Modifier
                         .size(36.dp)
                         .graphicsLayer {
-                            scaleX = splashScale.value
-                            scaleY = splashScale.value
-                            alpha = splashAlpha.value
+                            scaleX = splashScale.value; scaleY = splashScale.value; alpha = splashAlpha.value
                         }
                         .background(Color(0xFFFF3B6B).copy(alpha = 0.35f), CircleShape)
                 )
-                // The heart icon itself
                 Box(
                     modifier = Modifier
                         .then(if (isFavourite) Modifier.background(Color(0xFFFF3B6B).copy(alpha = 0.14f), RoundedCornerShape(999.dp)) else Modifier)
                         .clickable(interactionSource = heartInteraction, indication = null) {
                             onFavouriteToggle()
                             scope.launch {
-                                // Pop the heart
                                 heartScale.animateTo(1.45f, tween(110, easing = FastOutSlowInEasing))
                                 heartScale.animateTo(1f, spring(stiffness = Spring.StiffnessHigh))
                             }
-                            // Red splash: only animate when turning red (toggling on)
                             if (!isFavourite) {
                                 scope.launch {
                                     splashScale.snapTo(0f); splashAlpha.snapTo(0.9f)
@@ -289,30 +281,6 @@ fun AnimatedIconButton(
     }
 }
 
-// ── Skip rewind/forward button ────────────────────────────────────────────────
-@Composable
-fun SkipButton(icon: ImageVector, desc: String, onClick: () -> Unit) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.85f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow), label = "skipScale"
-    )
-    val rotation by animateFloatAsState(
-        targetValue = if (pressed) (if (desc == "Rewind") -18f else 18f) else 0f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow), label = "skipRot"
-    )
-    LiquidGlassSurface(
-        cornerRadius = 20.dp, alpha = 0.15f,
-        modifier = Modifier.size(56.dp).graphicsLayer { scaleX = scale; scaleY = scale; rotationZ = rotation }
-    ) {
-        IconButton(onClick = onClick, modifier = Modifier.fillMaxSize(), interactionSource = interaction) {
-            Icon(icon, desc, modifier = Modifier.size(28.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
-        }
-    }
-}
-
 // ── Heart button (standalone, used in video player) ───────────────────────────
 @Composable
 fun HeartButton(isFavourite: Boolean, onToggle: () -> Unit) {
@@ -331,7 +299,6 @@ fun HeartButton(isFavourite: Boolean, onToggle: () -> Unit) {
         animationSpec = tween(280), label = "heartColor"
     )
     Box(contentAlignment = Alignment.Center) {
-        // Red splash behind the button
         Box(
             modifier = Modifier
                 .size(50.dp)
@@ -372,3 +339,5 @@ fun HeartButton(isFavourite: Boolean, onToggle: () -> Unit) {
         }
     }
 }
+
+

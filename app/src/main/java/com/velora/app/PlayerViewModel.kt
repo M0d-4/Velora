@@ -60,7 +60,9 @@ data class PlayerState(
     // Non-null only when playing from an actual playlist (not shuffle-all)
     val currentPlaylistId: Long? = null,
     // Non-null when item belongs to >1 playlist and user presses next/prev
-    val pendingPlaylistChoice: List<Playlist>? = null
+    val pendingPlaylistChoice: List<Playlist>? = null,
+    // IDs of items hidden from the library
+    val hiddenItemIds: Set<Long> = emptySet()
 )
 
 enum class FilterTab { ALL, AUDIO, VIDEO, PLAYLISTS }
@@ -122,7 +124,13 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             } catch (_: Exception) { emptyList() }
         } else emptyList()
 
-        _state.update { it.copy(playlists = playlists, extraMediaList = extraMedia) }
+        val hiddenJson = prefs().getString("hidden_ids", null)
+        val hiddenIds = mutableSetOf<Long>()
+        if (hiddenJson != null) {
+            try { val a = JSONArray(hiddenJson); for (i in 0 until a.length()) hiddenIds.add(a.getLong(i)) }
+            catch (_: Exception) {}
+        }
+        _state.update { it.copy(playlists = playlists, extraMediaList = extraMedia, hiddenItemIds = hiddenIds) }
     }
 
     private fun persistData() {
@@ -145,7 +153,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             obj.put("albumArtUri", item.albumArtUri?.toString() ?: "")
             mediaArr.put(obj)
         }
-        p.putString(KEY_EXTRA_MEDIA, mediaArr.toString()); p.apply()
+        p.putString(KEY_EXTRA_MEDIA, mediaArr.toString())
+        val hiddenArr = JSONArray(); s.hiddenItemIds.forEach { hiddenArr.put(it) }
+        p.putString("hidden_ids", hiddenArr.toString())
+        p.apply()
     }
 
     private fun loadMedia() {
@@ -376,12 +387,24 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(isQueueMode = true, queue = shuffled, queueIndex = 0, currentPlaylistId = playlist.id) }
         playItem(shuffled[0])
     }
+    /** Adds all items from [playlistId] into the Favorites playlist. */
+    fun addPlaylistToFavorites(playlistId: Long) {
+        val s = _state.value
+        val src = s.playlists.firstOrNull { it.id == playlistId } ?: return
+        val fav = s.playlists.firstOrNull { it.isFavourites } ?: return
+        val merged = (fav.itemIds + src.itemIds).distinct()
+        _state.update { st ->
+            st.copy(playlists = st.playlists.map { p -> if (p.isFavourites) p.copy(itemIds = merged) else p })
+        }
+        persistData()
+    }
+
     fun mergePlaylists(sourceIds: List<Long>, newName: String, keepOriginals: Boolean = false) {
         val s = _state.value
         val mergedIds = sourceIds.flatMap { id -> s.playlists.firstOrNull { it.id == id }?.itemIds ?: emptyList() }.distinct()
         _state.update { state ->
             val merged = Playlist(id = System.currentTimeMillis(), name = newName, itemIds = mergedIds)
-            val filtered = if (keepOriginals) state.playlists else state.playlists.filter { p -> p.id !in sourceIds }
+            val filtered = if (keepOriginals) state.playlists else state.playlists.filter { p -> p.id !in sourceIds || p.isFavourites }
             state.copy(playlists = filtered + merged)
         }; persistData()
     }
@@ -537,6 +560,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun toggleHideItem(itemId: Long) {
+        _state.update { s ->
+            val updated = if (itemId in s.hiddenItemIds) s.hiddenItemIds - itemId else s.hiddenItemIds + itemId
+            s.copy(hiddenItemIds = updated)
+        }
+        persistData()
+    }
+
     fun removeLyrics() {
         val item = _state.value.currentItem ?: return
         // Delete the file if it lives in our stable lyrics dir
@@ -675,7 +706,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun filteredList(): List<MediaItem> {
         val s = _state.value
-        val all = s.mediaList + s.extraMediaList.filter { extra -> s.mediaList.none { it.id == extra.id } }
+        val all = (s.mediaList + s.extraMediaList.filter { extra -> s.mediaList.none { it.id == extra.id } })
+            .filter { it.id !in s.hiddenItemIds }
         return when (s.filterTab) {
             FilterTab.ALL      -> all
             FilterTab.AUDIO    -> all.filter { it.isAudio }

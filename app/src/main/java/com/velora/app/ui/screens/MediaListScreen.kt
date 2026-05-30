@@ -59,9 +59,12 @@ fun MediaListScreen(
     onAddToFavourites: (MediaItem) -> Unit,
     isFavourite: (MediaItem) -> Boolean,
     onMergePlaylists: (List<Long>, String, Boolean) -> Unit,
+    onAddPlaylistToFavorites: (Long) -> Unit,
     onDeletePlaylist: (Long) -> Unit,
     onRenamePlaylist: (Long, String) -> Unit,
     onAddToPlaylist: (Long, MediaItem) -> Unit,
+    onHideItem: (Long) -> Unit,
+    onAddPlaylistToFavorites: (Long) -> Unit,
     onRemoveImported: (Long) -> Unit,
     onMultiDeleteMedia: (Set<Long>, Boolean) -> Unit,
     onMultiDeletePlaylists: (Set<Long>, Boolean) -> Unit,
@@ -190,6 +193,7 @@ fun MediaListScreen(
     if (showMergeDialog) {
         MergePlaylistsDialog(playlists = state.playlists,
             onMerge = { ids, name, keep -> onMergePlaylists(ids, name, keep); showMergeDialog = false },
+            onAddToFavorites = { playlistId -> onAddPlaylistToFavorites(playlistId); showMergeDialog = false },
             onDismiss = { showMergeDialog = false })
     }
 
@@ -197,7 +201,9 @@ fun MediaListScreen(
     addToPlaylistItem?.let { item ->
         val isImported = state.extraMediaList.any { it.id == item.id }
         AddToPlaylistDialog(item = item, playlists = nonFavPlaylists, isImported = isImported,
+            hiddenItemIds = state.hiddenItemIds,
             onAdd = { playlistId -> onAddToPlaylist(playlistId, item); addToPlaylistItem = null },
+            onHide = { onHideItem(item.id); addToPlaylistItem = null },
             onRemoveImported = { onRemoveImported(item.id); addToPlaylistItem = null },
             onDismiss = { addToPlaylistItem = null })
     }
@@ -206,8 +212,14 @@ fun MediaListScreen(
 // ── Add-to-playlist dialog ─────────────────────────────────────────────────────
 @Composable
 private fun AddToPlaylistDialog(
-    item: MediaItem, playlists: List<Playlist>, isImported: Boolean,
-    onAdd: (Long) -> Unit, onRemoveImported: () -> Unit, onDismiss: () -> Unit
+    item: MediaItem,
+    playlists: List<Playlist>,
+    isImported: Boolean,
+    hiddenItemIds: Set<Long>,
+    onAdd: (Long) -> Unit,
+    onHide: () -> Unit,
+    onRemoveImported: () -> Unit,
+    onDismiss: () -> Unit
 ) {
     AlertDialog(onDismissRequest = onDismiss,
         title = { Text("Options") },
@@ -243,6 +255,26 @@ private fun AddToPlaylistDialog(
                         }
                     }
                 }
+                // Hide / Unhide option
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(0.1f))
+                val isHidden = item.id in hiddenItemIds
+                Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                    .clickable { onHide() }.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(0.10f)),
+                        contentAlignment = Alignment.Center) {
+                        Icon(if (isHidden) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff, null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(0.65f))
+                    }
+                    Text(if (isHidden) "Unhide from library" else "Hide from library",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(0.75f),
+                        fontWeight = FontWeight.Medium)
+                }
+
                 // Remove imported option (only for ZIP-imported files)
                 if (isImported) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp,
@@ -269,6 +301,7 @@ private fun AddToPlaylistDialog(
 private fun MergePlaylistsDialog(
     playlists: List<Playlist>,
     onMerge: (List<Long>, String, Boolean) -> Unit,
+    onAddToFavorites: (Long) -> Unit,
     onDismiss: () -> Unit
 ) {
     val selected = remember { mutableStateListOf<Long>() }
@@ -352,15 +385,25 @@ private fun MergePlaylistsDialog(
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = {
-                    val finalName = newName.trim().ifBlank {
-                        playlists.filter { selected.contains(it.id) }.take(2).joinToString(" + ") { it.name }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                // "Add to Favorites" — only when a single playlist is selected
+                if (selected.size == 1) {
+                    TextButton(onClick = { onAddToFavorites(selected[0]) }) {
+                        Icon(Icons.Rounded.Favorite, null, modifier = Modifier.size(14.dp), tint = Color(0xFFFF3B6B))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Add to Favorites", color = Color(0xFFFF3B6B))
                     }
-                    if (selected.size >= 2) onMerge(selected.toList(), finalName, keepOriginals)
-                },
-                enabled = selected.size >= 2
-            ) { Text("Merge") }
+                }
+                TextButton(
+                    onClick = {
+                        val finalName = newName.trim().ifBlank {
+                            playlists.filter { selected.contains(it.id) }.take(2).joinToString(" + ") { it.name }
+                        }
+                        if (selected.size >= 2) onMerge(selected.toList(), finalName, keepOriginals)
+                    },
+                    enabled = selected.size >= 2
+                ) { Text("Merge") }
+            }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
