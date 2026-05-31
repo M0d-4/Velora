@@ -281,6 +281,42 @@ fun AnimatedIconButton(
     }
 }
 
+// ── Rewind / Forward skip button used in audio player transport row ──────────
+@Composable
+fun SkipButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    desc: String,
+    onClick: () -> Unit
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.85f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow), label = "skipBtnScale"
+    )
+    val rotation by animateFloatAsState(
+        targetValue = if (pressed) (if (desc == "Rewind") -18f else 18f) else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow), label = "skipBtnRot"
+    )
+    LiquidGlassSurface(
+        cornerRadius = 20.dp,
+        alpha = 0.15f,
+        modifier = Modifier
+            .size(50.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale; rotationZ = rotation }
+    ) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.fillMaxSize(),
+            interactionSource = interaction
+        ) {
+            Icon(icon, desc,
+                modifier = Modifier.size(26.dp),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
+        }
+    }
+}
+
 // ── Heart button (standalone, used in video player) ───────────────────────────
 @Composable
 fun HeartButton(isFavourite: Boolean, onToggle: () -> Unit) {
@@ -339,5 +375,3 @@ fun HeartButton(isFavourite: Boolean, onToggle: () -> Unit) {
         }
     }
 }
-
-
