@@ -261,7 +261,62 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             if (found != null) item.copy(lyricsPath = found.absolutePath) else item
         } else item
         val lyrics = resolvedItem.lyricsPath?.let { LyricsParser.parse(File(it)) } ?: emptyList()
-        _state.update { it.copy(currentItem = resolvedItem, lyrics = lyrics, activeLyricIndex = -1) }
+        // If the item belongs to playlists but no playlist context is active, auto-set
+        // the first matching playlist as the queue so Prev/Next work immediately.
+        val currentState = _state.value
+        val newPlaylistId: Long?
+        val newQueue: List<MediaItem>
+        val newQueueIndex: Int
+        val newQueueMode: Boolean
+
+        if (currentState.currentPlaylistId != null) {
+            // Already in a playlist context — keep it, just update position
+            val existingQueue = currentState.queue
+            val existingIdx = existingQueue.indexOfFirst { it.id == resolvedItem.id }
+            newPlaylistId = currentState.currentPlaylistId
+            newQueue = existingQueue
+            newQueueIndex = if (existingIdx >= 0) existingIdx else 0
+            newQueueMode = true
+        } else {
+            // Not in a playlist — try to find a playlist containing this item
+            val allMedia = currentState.mediaList + currentState.extraMediaList
+            val matchingPlaylist = currentState.playlists
+                .firstOrNull { !it.isFavourites && it.itemIds.contains(resolvedItem.id) }
+            if (matchingPlaylist != null) {
+                val items = matchingPlaylist.itemIds
+                    .mapNotNull { id -> allMedia.firstOrNull { it.id == id } }
+                val idx = items.indexOfFirst { it.id == resolvedItem.id }
+                newPlaylistId = matchingPlaylist.id
+                newQueue = items
+                newQueueIndex = if (idx >= 0) idx else 0
+                newQueueMode = true
+            } else {
+                // No named playlist — build an implicit queue from all same-type media
+                // so Prev / Next always work from the library list
+                val allMedia = currentState.mediaList + currentState.extraMediaList.filter { e ->
+                    currentState.mediaList.none { it.id == e.id }
+                }
+                val sameType = allMedia.filter {
+                    it.id !in currentState.hiddenItemIds &&
+                    (resolvedItem.isVideo == it.isVideo)
+                }
+                val idx = sameType.indexOfFirst { it.id == resolvedItem.id }
+                newPlaylistId = null
+                newQueue = if (sameType.size > 1) sameType else currentState.queue
+                newQueueIndex = if (idx >= 0) idx else 0
+                newQueueMode = sameType.size > 1
+            }
+        }
+
+        _state.update { it.copy(
+            currentItem = resolvedItem,
+            lyrics = lyrics,
+            activeLyricIndex = -1,
+            currentPlaylistId = newPlaylistId,
+            queue = newQueue,
+            queueIndex = newQueueIndex,
+            isQueueMode = newQueueMode
+        ) }
         startPositionTracking()
     }
 
@@ -332,7 +387,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun advanceQueue(forward: Boolean = true) {
         val s = _state.value
-        if (!s.isQueueMode || s.queue.isEmpty() || s.currentPlaylistId == null) return
+        // Allow navigation as long as there is a queue, even without a named playlist
+        if (s.queue.size < 2) return
         // If shuffle, pick a different random track within same playlist
         val nextIdx = if (s.isShuffle) {
             val candidates = s.queue.indices.filter { it != s.queueIndex }

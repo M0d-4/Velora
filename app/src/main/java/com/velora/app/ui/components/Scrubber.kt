@@ -47,7 +47,8 @@ fun MediaScrubber(
     skipSeconds: Int = 10,
     onSkipForward: (() -> Unit)? = null,
     onSkipBackward: (() -> Unit)? = null,
-    isVideoOverlay: Boolean = false   // true → white tints for dark video bg
+    isVideoOverlay: Boolean = false,   // true → white tints for dark video bg
+    showSkipButtons: Boolean = true    // false → hide the flanking icon buttons
 ) {
     val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
 
@@ -93,7 +94,7 @@ fun MediaScrubber(
             modifier = Modifier.fillMaxWidth()
         ) {
             // Rewind button
-            if (onSkipBackward != null) {
+            if (onSkipBackward != null && showSkipButtons) {
                 IconButton(
                     onClick = ::doRewind,
                     modifier = Modifier
@@ -172,7 +173,7 @@ fun MediaScrubber(
             }
 
             // Forward button
-            if (onSkipForward != null) {
+            if (onSkipForward != null && showSkipButtons) {
                 IconButton(
                     onClick = ::doForward,
                     modifier = Modifier
@@ -189,7 +190,7 @@ fun MediaScrubber(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = if (onSkipBackward != null) 40.dp else 0.dp, vertical = 0.dp),
+                .padding(horizontal = if (onSkipBackward != null && showSkipButtons) 40.dp else 0.dp, vertical = 0.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(

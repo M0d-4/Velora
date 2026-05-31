@@ -53,7 +53,7 @@ fun VideoPlayerScreen(
 ) {
     val item = state.currentItem ?: return
     val hasLyrics = state.lyrics.isNotEmpty()
-    val isInPlaylist = state.isQueueMode && state.queue.size > 1 && state.currentPlaylistId != null
+    val isInPlaylist = state.isQueueMode && state.queue.size > 1
 
     var controlsVisible by remember { mutableStateOf(true) }
     var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -62,29 +62,29 @@ fun VideoPlayerScreen(
     LaunchedEffect(controlsVisible) { onHideBottomBar(!controlsVisible) }
     LaunchedEffect(Unit) { onHideBottomBar(true) }
 
-    // Auto-hide ONLY while playing; paused keeps controls visible indefinitely
-    LaunchedEffect(lastInteractionTime, state.isPlaying, controlsVisible) {
-        if (controlsVisible && state.isPlaying) {
+    // Auto-hide after 3s whether playing or paused; re-shows on tap
+    LaunchedEffect(lastInteractionTime, controlsVisible) {
+        if (controlsVisible) {
             delay(3000L)
             if (System.currentTimeMillis() - lastInteractionTime >= 3000L) {
                 controlsVisible = false
                 speedExpanded = false
             }
         }
-        // When playback pauses, always show controls
-        if (!state.isPlaying) controlsVisible = true
     }
 
     fun interact() { lastInteractionTime = System.currentTimeMillis() }
 
-    // Unified tap handler on the root Box
     Box(
         modifier = modifier.fillMaxSize().background(Color.Black)
             .pointerInput(controlsVisible, speedExpanded) {
                 detectTapGestures {
                     when {
                         speedExpanded -> { speedExpanded = false; interact() }
-                        controlsVisible -> { controlsVisible = false }
+                        controlsVisible -> {
+                            // Tap outside — hide controls immediately, reset timer
+                            controlsVisible = false
+                        }
                         else -> { controlsVisible = true; interact() }
                     }
                 }
@@ -97,8 +97,7 @@ fun VideoPlayerScreen(
                     useController = false
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT)
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                     setBackgroundColor(android.graphics.Color.BLACK)
                     setShutterBackgroundColor(android.graphics.Color.BLACK)
                     keepScreenOn = true
@@ -108,48 +107,52 @@ fun VideoPlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // ── Lyrics — higher up in portrait, animates with controls ────────
+        // ── Lyrics — full width, above bottom controls ─────────────────────
         if (hasLyrics) {
+            // Shift lyrics higher when controls are visible so they don't overlap
             val lyricsBottomPad by animateDpAsState(
-                targetValue = if (controlsVisible) 260.dp else 48.dp,
+                targetValue = if (controlsVisible) 210.dp else 28.dp,
                 animationSpec = tween(250), label = "lyricsPad"
             )
             LyricsOverlay(
-                lyrics = state.lyrics, activeIndex = state.activeLyricIndex,
+                lyrics = state.lyrics,
+                activeIndex = state.activeLyricIndex,
                 slideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    // Use fillMaxWidth so lyrics span the whole screen, not just video area
                     .fillMaxWidth()
-                    .height(80.dp)
+                    .height(72.dp)
                     .padding(bottom = lyricsBottomPad)
             )
         }
 
-        // ── Controls overlay (fade in/out, taps pass through to root box) ──
+        // ── Controls overlay ───────────────────────────────────────────────
         AnimatedVisibility(
             visible = controlsVisible,
             enter = fadeIn(tween(180)), exit = fadeOut(tween(180)),
             modifier = Modifier.fillMaxSize()
         ) {
-            // This Box does NOT consume taps — they fall through to the root pointerInput
             Box(Modifier.fillMaxSize()) {
-                // Scrims
+                // Top scrim
                 Box(Modifier.fillMaxWidth().height(130.dp)
-                    .background(Brush.verticalGradient(listOf(Color.Black.copy(0.70f), Color.Transparent)))
+                    .background(Brush.verticalGradient(
+                        listOf(Color.Black.copy(0.70f), Color.Transparent)))
                     .align(Alignment.TopCenter))
-                Box(Modifier.fillMaxWidth().height(300.dp)
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.88f))))
+                // Bottom scrim — taller to cover bottom buttons + nav bar
+                Box(Modifier.fillMaxWidth().height(380.dp)
+                    .background(Brush.verticalGradient(
+                        listOf(Color.Transparent, Color.Black.copy(0.92f))))
                     .align(Alignment.BottomCenter))
 
-                // Title + rotate
-                Row(
-                    modifier = Modifier.align(Alignment.TopStart).fillMaxWidth()
-                        .statusBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
+                // ── Title + rotate (top) ───────────────────────────────────
+                Row(modifier = Modifier.align(Alignment.TopStart).fillMaxWidth()
+                    .statusBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(item.title, style = MaterialTheme.typography.titleMedium, color = Color.White,
-                        fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(item.title, style = MaterialTheme.typography.titleMedium,
+                        color = Color.White, fontWeight = FontWeight.SemiBold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f))
                     Spacer(Modifier.width(12.dp))
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.22f) {
@@ -159,22 +162,18 @@ fun VideoPlayerScreen(
                     }
                 }
 
-                // Centre transport (NO rewind/forward here — those are in the scrubber)
-                Row(
-                    modifier = Modifier.align(Alignment.Center),
+                // ── Centre transport ───────────────────────────────────────
+                Row(modifier = Modifier.align(Alignment.Center),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(20.dp)
-                ) {
-                    // Prev
-                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.20f else 0.08f,
-                        modifier = Modifier.size(50.dp)) {
+                    horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                    LiquidGlassSurface(cornerRadius = 999.dp,
+                        alpha = if (isInPlaylist) 0.20f else 0.08f, modifier = Modifier.size(50.dp)) {
                         IconButton({ if (isInPlaylist) { onPlayPrev(); interact() } },
                             Modifier.fillMaxSize(), isInPlaylist) {
                             Icon(Icons.Rounded.SkipPrevious, "Prev", Modifier.size(26.dp),
                                 tint = if (isInPlaylist) Color.White.copy(0.9f) else Color.White.copy(0.25f))
                         }
                     }
-                    // Play/Pause (large centre button)
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.30f, modifier = Modifier.size(80.dp)) {
                         IconButton({ onPlayPause(); interact() }, Modifier.fillMaxSize()) {
                             AnimatedContent(state.isPlaying, label = "vpp") { playing ->
@@ -183,9 +182,8 @@ fun VideoPlayerScreen(
                             }
                         }
                     }
-                    // Next
-                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.20f else 0.08f,
-                        modifier = Modifier.size(50.dp)) {
+                    LiquidGlassSurface(cornerRadius = 999.dp,
+                        alpha = if (isInPlaylist) 0.20f else 0.08f, modifier = Modifier.size(50.dp)) {
                         IconButton({ if (isInPlaylist) { onPlayNext(); interact() } },
                             Modifier.fillMaxSize(), isInPlaylist) {
                             Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(26.dp),
@@ -194,15 +192,18 @@ fun VideoPlayerScreen(
                     }
                 }
 
-                // Bottom controls
+                // ── Bottom controls — above system nav bar ─────────────────
                 Column(
-                    modifier = Modifier.align(Alignment.BottomCenter)
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        // navigationBarsPadding pushes above system nav; then add extra breathing room
                         .navigationBarsPadding()
-                        .padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
+                        .padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Scrubber WITH visible rewind/forward flanking buttons
+                    // Scrubber with visible rewind/forward buttons
                     MediaScrubber(
                         positionMs     = state.positionMs,
                         durationMs     = state.durationMs,
@@ -213,13 +214,14 @@ fun VideoPlayerScreen(
                         isVideoOverlay = true,
                         modifier       = Modifier.fillMaxWidth()
                     )
-
-                    // Speed + skip-seconds row
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // Speed + skip seconds
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
                         PlaybackSpeedControl(
                             currentSpeed = state.playbackSpeed,
                             onSpeedChange = { onSpeedChange(it); interact() },
-                            expanded = speedExpanded, onExpandedChange = { speedExpanded = it },
+                            expanded = speedExpanded,
+                            onExpandedChange = { speedExpanded = it },
                             isVideoOverlay = true
                         )
                         AnimatedVisibility(!speedExpanded,
@@ -228,22 +230,22 @@ fun VideoPlayerScreen(
                             SkipSecondsPillVideo(state.skipSeconds) { onSkipSecondsChange(it); interact() }
                         }
                     }
-
-                    // Lyrics + shuffle/queue/fav row
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(
-                            onClick = { onImportLyrics(); interact() },
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
+                    // Lyrics + shuffle/queue/fav
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { onImportLyrics(); interact() },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
                             Icon(Icons.Rounded.Lyrics, null, Modifier.size(14.dp), tint = Color.White.copy(0.7f))
                             Spacer(Modifier.width(4.dp))
                             Text(if (hasLyrics) "Change lyrics" else "Import lyrics",
                                 fontSize = 11.sp, color = Color.White.copy(0.7f))
                         }
                         if (hasLyrics) {
-                            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.2f, modifier = Modifier.size(30.dp)) {
+                            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.2f,
+                                modifier = Modifier.size(30.dp)) {
                                 IconButton({ onRemoveLyrics(); interact() }, Modifier.fillMaxSize()) {
-                                    Icon(Icons.Rounded.Close, "Remove", Modifier.size(14.dp), tint = Color(0xFFFF6B6B))
+                                    Icon(Icons.Rounded.Close, "Remove", Modifier.size(14.dp),
+                                        tint = Color(0xFFFF6B6B))
                                 }
                             }
                         }
@@ -277,13 +279,11 @@ private fun SkipSecondsPillVideo(current: Int, onChange: (Int) -> Unit) {
             listOf(5, 10).forEach { secs ->
                 val isSelected = current == secs
                 val bgAlpha by animateFloatAsState(if (isSelected) 0.2f else 0f, tween(200), label = "skipbg")
-                Box(
-                    modifier = Modifier.clip(RoundedCornerShape(999.dp))
-                        .background(Color.White.copy(bgAlpha), RoundedCornerShape(999.dp))
-                        .pointerInput(Unit) { detectTapGestures { onChange(secs) } }
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.clip(RoundedCornerShape(999.dp))
+                    .background(Color.White.copy(bgAlpha), RoundedCornerShape(999.dp))
+                    .pointerInput(Unit) { detectTapGestures { onChange(secs) } }
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center) {
                     Text("${secs}s", fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         fontSize = 12.sp, color = if (isSelected) Color.White else Color.White.copy(0.5f))
                 }
