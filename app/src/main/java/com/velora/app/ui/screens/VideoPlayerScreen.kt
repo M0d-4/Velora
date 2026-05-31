@@ -215,7 +215,7 @@ fun VideoPlayerScreen(
                     )
 
                     // Speed + skip-seconds row
-                    Row(Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                         PlaybackSpeedControl(
                             currentSpeed = state.playbackSpeed,
                             onSpeedChange = { onSpeedChange(it); interact() },
@@ -230,7 +230,7 @@ fun VideoPlayerScreen(
                     }
 
                     // Lyrics + shuffle/queue/fav row
-                    Row(Arrangement.spacedBy(6.dp), Alignment.CenterVertically) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         TextButton(
                             onClick = { onImportLyrics(); interact() },
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)

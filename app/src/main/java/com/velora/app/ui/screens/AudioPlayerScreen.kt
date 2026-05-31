@@ -365,8 +365,9 @@ private fun AudioPlayerLandscape(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally) {
 
-                Row(Modifier.fillMaxWidth(),
-                    Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                Row(modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically) {
                     PlaybackSpeedControl(state.playbackSpeed, onSpeedChange, speedExpanded, { speedExpanded = it })
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onRotate) {
@@ -378,7 +379,7 @@ private fun AudioPlayerLandscape(
                 Spacer(Modifier.weight(1f))
 
                 // Prev / Controls / Next
-                Row(Alignment.CenterVertically, Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
                         modifier = Modifier.size(34.dp)) {
                         IconButton({ if (isInPlaylist) onPlayPrev() }, Modifier.fillMaxSize(), isInPlaylist) {
@@ -387,9 +388,20 @@ private fun AudioPlayerLandscape(
                                        else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                         }
                     }
-                    PlayerControls(state.isPlaying, state.skipSeconds, isFavourite, state.isShuffle,
-                        state.isQueueMode, onPlayPause, onSkipForward, onSkipBackward,
-                        onSkipSecondsChange, onFavouriteToggle, onShuffleToggle, onQueueToggle)
+                    PlayerControls(
+                        isPlaying = state.isPlaying,
+                        skipSeconds = state.skipSeconds,
+                        isFavourite = isFavourite,
+                        isShuffle = state.isShuffle,
+                        isQueueMode = state.isQueueMode,
+                        onPlayPause = onPlayPause,
+                        onSkipForward = onSkipForward,
+                        onSkipBackward = onSkipBackward,
+                        onSkipSecondsChange = onSkipSecondsChange,
+                        onFavouriteToggle = onFavouriteToggle,
+                        onShuffleToggle = onShuffleToggle,
+                        onQueueToggle = onQueueToggle
+                    )
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
                         modifier = Modifier.size(34.dp)) {
                         IconButton({ if (isInPlaylist) onPlayNext() }, Modifier.fillMaxSize(), isInPlaylist) {

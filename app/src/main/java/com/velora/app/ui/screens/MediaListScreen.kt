@@ -64,7 +64,6 @@ fun MediaListScreen(
     onRenamePlaylist: (Long, String) -> Unit,
     onAddToPlaylist: (Long, MediaItem) -> Unit,
     onHideItem: (Long) -> Unit,
-    onAddPlaylistToFavorites: (Long) -> Unit,
     onRemoveImported: (Long) -> Unit,
     onMultiDeleteMedia: (Set<Long>, Boolean) -> Unit,
     onMultiDeletePlaylists: (Set<Long>, Boolean) -> Unit,
