@@ -244,7 +244,6 @@ fun VeloraApp(
                             onRenamePlaylist = viewModel::renamePlaylist,
                             onAddToPlaylist = viewModel::addToPlaylist,
                             onHideItem = viewModel::toggleHideItem,
-                            onAddPlaylistToFavorites = viewModel::addPlaylistToFavorites,
                             onRemoveImported = viewModel::removeImportedMedia,
                             onMultiDeleteMedia = viewModel::multiDeleteImportedMedia,
                             onMultiDeletePlaylists = viewModel::multiDeletePlaylists,

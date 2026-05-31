@@ -413,7 +413,7 @@ private fun AudioPlayerLandscape(
                 }
                 Spacer(Modifier.height(4.dp))
 
-                LiquidGlassSurface(cornerRadius = 14.dp, alpha = 0.12f, Modifier.fillMaxWidth()) {
+                LiquidGlassSurface(cornerRadius = 14.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
                     MediaScrubber(
                         positionMs = state.positionMs, durationMs = state.durationMs,
                         onSeek = onSeek, skipSeconds = state.skipSeconds,
