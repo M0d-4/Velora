@@ -222,7 +222,7 @@ private fun AudioPlayerPortrait(
             }
             Spacer(Modifier.height(10.dp))
 
-            // ── Transport: Prev | Rewind | Play/Pause | Forward | Next ────
+            // ── Transport: Prev | Play/Pause | Next ───────────────────────
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth()) {
@@ -236,23 +236,9 @@ private fun AudioPlayerPortrait(
                                    else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                     }
                 }
-                // Rewind (skip backward)
-                LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.15f, modifier = Modifier.size(46.dp)) {
-                    IconButton(onClick = onSkipBackward, modifier = Modifier.fillMaxSize()) {
-                        Icon(Icons.Rounded.FastRewind, "Rewind", Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(0.85f))
-                    }
-                }
                 // Play/Pause (centred, largest)
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     AnimatedPlayPauseButton(isPlaying = state.isPlaying, onClick = onPlayPause)
-                }
-                // Forward (skip forward)
-                LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.15f, modifier = Modifier.size(46.dp)) {
-                    IconButton(onClick = onSkipForward, modifier = Modifier.fillMaxSize()) {
-                        Icon(Icons.Rounded.FastForward, "Forward", Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(0.85f))
-                    }
                 }
                 // Next
                 LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
@@ -304,15 +290,16 @@ private fun AudioPlayerPortrait(
             }
             Spacer(Modifier.height(8.dp))
 
-            // ── Time bar — scrubber only (no extra skip buttons) ──────────
+            // ── Time bar — scrubber with skip buttons ─────────────────────
             LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
                 MediaScrubber(
-                    positionMs    = state.positionMs,
-                    durationMs    = state.durationMs,
-                    onSeek        = onSeek,
-                    skipSeconds   = state.skipSeconds,
-                    // No skip callbacks → no flanking buttons appear
-                    modifier      = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
+                    positionMs     = state.positionMs,
+                    durationMs     = state.durationMs,
+                    onSeek         = onSeek,
+                    skipSeconds    = state.skipSeconds,
+                    onSkipBackward = onSkipBackward,
+                    onSkipForward  = onSkipForward,
+                    modifier       = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
                 )
             }
             Spacer(Modifier.height(8.dp))
@@ -379,7 +366,7 @@ private fun AudioPlayerLandscape(
                 }
                 Spacer(Modifier.weight(1f))
 
-                // Transport: Prev | Rewind | Play | Forward | Next
+                // Transport: Prev | Play | Next
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
@@ -390,19 +377,7 @@ private fun AudioPlayerLandscape(
                                        else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                         }
                     }
-                    LiquidGlassSurface(cornerRadius = 16.dp, alpha = 0.15f, modifier = Modifier.size(36.dp)) {
-                        IconButton(onClick = onSkipBackward, modifier = Modifier.fillMaxSize()) {
-                            Icon(Icons.Rounded.FastRewind, "Rewind", Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onSurface.copy(0.85f))
-                        }
-                    }
                     AnimatedPlayPauseButton(isPlaying = state.isPlaying, onClick = onPlayPause)
-                    LiquidGlassSurface(cornerRadius = 16.dp, alpha = 0.15f, modifier = Modifier.size(36.dp)) {
-                        IconButton(onClick = onSkipForward, modifier = Modifier.fillMaxSize()) {
-                            Icon(Icons.Rounded.FastForward, "Forward", Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onSurface.copy(0.85f))
-                        }
-                    }
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
                         modifier = Modifier.size(34.dp)) {
                         IconButton({ if (isInPlaylist) onPlayNext() }, Modifier.fillMaxSize(), isInPlaylist) {
@@ -414,12 +389,14 @@ private fun AudioPlayerLandscape(
                 }
                 Spacer(Modifier.height(8.dp))
 
-                // Scrubber — pinned to bottom, no extra skip buttons
+                // Scrubber — with skip buttons in the time bar
                 LiquidGlassSurface(cornerRadius = 14.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
                     MediaScrubber(
-                        positionMs = state.positionMs, durationMs = state.durationMs,
-                        onSeek = onSeek, skipSeconds = state.skipSeconds,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
+                        positionMs     = state.positionMs, durationMs = state.durationMs,
+                        onSeek         = onSeek, skipSeconds = state.skipSeconds,
+                        onSkipBackward = onSkipBackward,
+                        onSkipForward  = onSkipForward,
+                        modifier       = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 }
             }
