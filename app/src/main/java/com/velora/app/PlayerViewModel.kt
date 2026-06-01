@@ -291,20 +291,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 newQueueIndex = if (idx >= 0) idx else 0
                 newQueueMode = true
             } else {
-                // No named playlist — build an implicit queue from all same-type media
-                // so Prev / Next always work from the library list
-                val allMedia = currentState.mediaList + currentState.extraMediaList.filter { e ->
-                    currentState.mediaList.none { it.id == e.id }
-                }
-                val sameType = allMedia.filter {
-                    it.id !in currentState.hiddenItemIds &&
-                    (resolvedItem.isVideo == it.isVideo)
-                }
-                val idx = sameType.indexOfFirst { it.id == resolvedItem.id }
+                // No named playlist — do NOT build an implicit queue.
+                // Next/Prev only work when the user explicitly plays a playlist.
                 newPlaylistId = null
-                newQueue = if (sameType.size > 1) sameType else currentState.queue
-                newQueueIndex = if (idx >= 0) idx else 0
-                newQueueMode = sameType.size > 1
+                newQueue = emptyList()
+                newQueueIndex = 0
+                newQueueMode = false
             }
         }
 
@@ -387,8 +379,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun advanceQueue(forward: Boolean = true) {
         val s = _state.value
-        // Allow navigation as long as there is a queue, even without a named playlist
-        if (s.queue.size < 2) return
+        // Only navigate within a named playlist queue
+        if (s.currentPlaylistId == null || s.queue.size < 2) return
         // If shuffle, pick a different random track within same playlist
         val nextIdx = if (s.isShuffle) {
             val candidates = s.queue.indices.filter { it != s.queueIndex }

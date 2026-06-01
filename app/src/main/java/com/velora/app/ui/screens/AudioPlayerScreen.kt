@@ -57,14 +57,15 @@ fun AudioPlayerScreen(
         }, label = "orientation"
     ) { landscape ->
         if (landscape) {
-            AudioPlayerLandscape(state, item, onPlayPause, onSkipForward, onSkipBackward, onSeek,
-                onSkipSecondsChange, onFavouriteToggle, onShuffleToggle, onQueueToggle,
-                onSpeedChange, onPlayNext, onPlayPrev, isFavourite, onRotate, modifier)
-        } else {
-            AudioPlayerPortrait(state, item, onPlayPause, onSkipForward, onSkipBackward, onSeek,
-                onSkipSecondsChange, onImportLyrics, onRemoveLyrics, onFavouriteToggle,
-                onShuffleToggle, onQueueToggle, onSpeedChange, onPlayNext, onPlayPrev,
+            AudioPlayerLandscape(state, item, onPlayPause, onSkipForward, onSkipBackward,
+                onSeek, onSkipSecondsChange, onFavouriteToggle, onShuffleToggle,
+                onQueueToggle, onSpeedChange, onPlayNext, onPlayPrev,
                 isFavourite, onRotate, modifier)
+        } else {
+            AudioPlayerPortrait(state, item, onPlayPause, onSkipForward, onSkipBackward,
+                onSeek, onSkipSecondsChange, onImportLyrics, onRemoveLyrics,
+                onFavouriteToggle, onShuffleToggle, onQueueToggle, onSpeedChange,
+                onPlayNext, onPlayPrev, isFavourite, onRotate, modifier)
         }
     }
 }
@@ -120,7 +121,9 @@ private fun AudioPlayerPortrait(
     isFavourite: Boolean, onRotate: () -> Unit, modifier: Modifier = Modifier
 ) {
     val hasLyrics = state.lyrics.isNotEmpty()
-    val isInPlaylist = state.isQueueMode && state.queue.size > 1
+    // Prev/Next only enabled when playing from a named playlist
+    val isInPlaylist = state.isQueueMode && state.queue.size > 1 && state.currentPlaylistId != null
+
     var speedExpanded by remember { mutableStateOf(false) }
     var prevItemId by remember { mutableLongStateOf(item.id) }
     var enterFromRight by remember { mutableStateOf(true) }
@@ -135,11 +138,12 @@ private fun AudioPlayerPortrait(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(8.dp))
-            // ── Top row: speed + rotate ───────────────────────────────────
+
+            // ── Speed + rotate ────────────────────────────────────────────
             Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                PlaybackSpeedControl(state.playbackSpeed, onSpeedChange, speedExpanded, { speedExpanded = it })
+                PlaybackSpeedControl(state.playbackSpeed, onSpeedChange, speedExpanded) { speedExpanded = it }
                 AnimatedVisibility(!speedExpanded,
                     enter = fadeIn(tween(200)) + scaleIn(initialScale = 0.8f),
                     exit  = fadeOut(tween(150)) + scaleOut(targetScale = 0.8f)) {
@@ -151,13 +155,13 @@ private fun AudioPlayerPortrait(
                     }
                 }
             }
-            Spacer(Modifier.weight(0.3f))
+            Spacer(Modifier.height(16.dp))
 
-            // ── Album art ─────────────────────────────────────────────────
+            // ── Album art (lifted, near top) ──────────────────────────────
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 AnimatedAlbumArt(item, state.isPlaying, 200)
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
 
             // ── Title + artist ────────────────────────────────────────────
             AnimatedContent(targetState = item,
@@ -175,7 +179,20 @@ private fun AudioPlayerPortrait(
                         textAlign = TextAlign.Center, maxLines = 1)
                 }
             }
-            Spacer(Modifier.weight(0.3f))
+            Spacer(Modifier.height(10.dp))
+
+            // ── Lyrics directly under title (scrolling UP) ────────────────
+            if (hasLyrics) {
+                LyricsOverlay(
+                    lyrics = state.lyrics,
+                    activeIndex = state.activeLyricIndex,
+                    slideDirection = LyricsSlideDirection.UP,
+                    modifier = Modifier.fillMaxWidth().weight(1f).heightIn(min = 80.dp)
+                )
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(8.dp))
 
             // ── Shuffle + Queue ───────────────────────────────────────────
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -197,8 +214,7 @@ private fun AudioPlayerPortrait(
                         Icon(Icons.Rounded.QueueMusic, null, Modifier.size(16.dp),
                             tint = if (state.isQueueMode) MaterialTheme.colorScheme.primary
                                    else MaterialTheme.colorScheme.onSurface.copy(0.55f))
-                        Text(if (state.isQueueMode) "Queue On" else "Play Next",
-                            fontSize = 12.sp,
+                        Text(if (state.isQueueMode) "Queue On" else "Play Next", fontSize = 12.sp,
                             color = if (state.isQueueMode) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.onSurface.copy(0.6f))
                     }
@@ -208,7 +224,7 @@ private fun AudioPlayerPortrait(
 
             // ── Transport: Prev | Rewind | Play/Pause | Forward | Next ────
             Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth()) {
                 // Prev
                 LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
@@ -220,14 +236,24 @@ private fun AudioPlayerPortrait(
                                    else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                     }
                 }
-                // Rewind
-                SkipButton(Icons.Rounded.FastRewind, "Rewind", onSkipBackward)
-                // Play/Pause
+                // Rewind (skip backward)
+                LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.15f, modifier = Modifier.size(46.dp)) {
+                    IconButton(onClick = onSkipBackward, modifier = Modifier.fillMaxSize()) {
+                        Icon(Icons.Rounded.FastRewind, "Rewind", Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(0.85f))
+                    }
+                }
+                // Play/Pause (centred, largest)
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     AnimatedPlayPauseButton(isPlaying = state.isPlaying, onClick = onPlayPause)
                 }
-                // Forward
-                SkipButton(Icons.Rounded.FastForward, "Forward", onSkipForward)
+                // Forward (skip forward)
+                LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.15f, modifier = Modifier.size(46.dp)) {
+                    IconButton(onClick = onSkipForward, modifier = Modifier.fillMaxSize()) {
+                        Icon(Icons.Rounded.FastForward, "Forward", Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(0.85f))
+                    }
+                }
                 // Next
                 LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
                     modifier = Modifier.size(44.dp)) {
@@ -239,9 +265,9 @@ private fun AudioPlayerPortrait(
                     }
                 }
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
 
-            // ── Import lyrics | skip-seconds + heart (single row, no dupe) ──
+            // ── Import lyrics | skip-seconds + heart ─────────────────────
             Row(modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -268,7 +294,7 @@ private fun AudioPlayerPortrait(
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                // One single SkipAndHeartPill — no duplicate
+                // Single SkipAndHeartPill
                 SkipAndHeartPill(
                     skipSeconds = state.skipSeconds,
                     isFavourite = isFavourite,
@@ -278,28 +304,16 @@ private fun AudioPlayerPortrait(
             }
             Spacer(Modifier.height(8.dp))
 
-            // ── Time bar (scrubber only, NO extra skip buttons here) ──────
+            // ── Time bar — scrubber only (no extra skip buttons) ──────────
             LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
                 MediaScrubber(
-                    positionMs  = state.positionMs,
-                    durationMs  = state.durationMs,
-                    onSeek      = onSeek,
-                    skipSeconds = state.skipSeconds,
-                    modifier    = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
+                    positionMs    = state.positionMs,
+                    durationMs    = state.durationMs,
+                    onSeek        = onSeek,
+                    skipSeconds   = state.skipSeconds,
+                    // No skip callbacks → no flanking buttons appear
+                    modifier      = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
                 )
-            }
-
-            // ── Lyrics ────────────────────────────────────────────────────
-            if (hasLyrics) {
-                Spacer(Modifier.height(8.dp))
-                LyricsOverlay(
-                    lyrics = state.lyrics,
-                    activeIndex = state.activeLyricIndex,
-                    slideDirection = LyricsSlideDirection.UP,
-                    modifier = Modifier.fillMaxWidth().weight(1f).heightIn(min = 100.dp)
-                )
-            } else {
-                Spacer(Modifier.weight(1f))
             }
             Spacer(Modifier.height(8.dp))
         }
@@ -317,7 +331,7 @@ private fun AudioPlayerLandscape(
     isFavourite: Boolean, onRotate: () -> Unit, modifier: Modifier = Modifier
 ) {
     val hasLyrics = state.lyrics.isNotEmpty()
-    val isInPlaylist = state.isQueueMode && state.queue.size > 1
+    val isInPlaylist = state.isQueueMode && state.queue.size > 1 && state.currentPlaylistId != null
     var speedExpanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()
@@ -349,14 +363,13 @@ private fun AudioPlayerLandscape(
                 } else Spacer(Modifier.weight(1f))
             }
 
-            // Right: speed/rotate | controls | scrubber
+            // Right: speed/rotate | controls | scrubber (at bottom)
             Column(modifier = Modifier.weight(0.56f).fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
-                    PlaybackSpeedControl(state.playbackSpeed, onSpeedChange, speedExpanded, { speedExpanded = it })
+                    PlaybackSpeedControl(state.playbackSpeed, onSpeedChange, speedExpanded) { speedExpanded = it }
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onRotate) {
                             Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(18.dp),
@@ -365,9 +378,10 @@ private fun AudioPlayerLandscape(
                     }
                 }
                 Spacer(Modifier.weight(1f))
+
                 // Transport: Prev | Rewind | Play | Forward | Next
                 Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
                         modifier = Modifier.size(34.dp)) {
                         IconButton({ if (isInPlaylist) onPlayPrev() }, Modifier.fillMaxSize(), isInPlaylist) {
@@ -376,9 +390,19 @@ private fun AudioPlayerLandscape(
                                        else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                         }
                     }
-                    SkipButton(Icons.Rounded.FastRewind, "Rewind", onSkipBackward)
+                    LiquidGlassSurface(cornerRadius = 16.dp, alpha = 0.15f, modifier = Modifier.size(36.dp)) {
+                        IconButton(onClick = onSkipBackward, modifier = Modifier.fillMaxSize()) {
+                            Icon(Icons.Rounded.FastRewind, "Rewind", Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(0.85f))
+                        }
+                    }
                     AnimatedPlayPauseButton(isPlaying = state.isPlaying, onClick = onPlayPause)
-                    SkipButton(Icons.Rounded.FastForward, "Forward", onSkipForward)
+                    LiquidGlassSurface(cornerRadius = 16.dp, alpha = 0.15f, modifier = Modifier.size(36.dp)) {
+                        IconButton(onClick = onSkipForward, modifier = Modifier.fillMaxSize()) {
+                            Icon(Icons.Rounded.FastForward, "Forward", Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(0.85f))
+                        }
+                    }
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
                         modifier = Modifier.size(34.dp)) {
                         IconButton({ if (isInPlaylist) onPlayNext() }, Modifier.fillMaxSize(), isInPlaylist) {
@@ -388,7 +412,9 @@ private fun AudioPlayerLandscape(
                         }
                     }
                 }
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(8.dp))
+
+                // Scrubber — pinned to bottom, no extra skip buttons
                 LiquidGlassSurface(cornerRadius = 14.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
                     MediaScrubber(
                         positionMs = state.positionMs, durationMs = state.durationMs,
