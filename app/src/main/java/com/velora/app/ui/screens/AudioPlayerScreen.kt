@@ -143,7 +143,7 @@ private fun AudioPlayerPortrait(
             Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                PlaybackSpeedControl(state.playbackSpeed, onSpeedChange, speedExpanded) { speedExpanded = it }
+                PlaybackSpeedControl(currentSpeed = state.playbackSpeed, onSpeedChange = onSpeedChange, expanded = speedExpanded, onExpandedChange = { speedExpanded = it })
                 AnimatedVisibility(!speedExpanded,
                     enter = fadeIn(tween(200)) + scaleIn(initialScale = 0.8f),
                     exit  = fadeOut(tween(150)) + scaleOut(targetScale = 0.8f)) {
@@ -356,7 +356,7 @@ private fun AudioPlayerLandscape(
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
-                    PlaybackSpeedControl(state.playbackSpeed, onSpeedChange, speedExpanded) { speedExpanded = it }
+                    PlaybackSpeedControl(currentSpeed = state.playbackSpeed, onSpeedChange = onSpeedChange, expanded = speedExpanded, onExpandedChange = { speedExpanded = it })
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onRotate) {
                             Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(18.dp),
