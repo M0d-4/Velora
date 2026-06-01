@@ -155,13 +155,13 @@ private fun AudioPlayerPortrait(
                     }
                 }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
 
             // ── Album art (lifted, near top) ──────────────────────────────
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                AnimatedAlbumArt(item, state.isPlaying, 200)
+                AnimatedAlbumArt(item, state.isPlaying, 180)
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(10.dp))
 
             // ── Title + artist ────────────────────────────────────────────
             AnimatedContent(targetState = item,
@@ -224,7 +224,7 @@ private fun AudioPlayerPortrait(
 
             // ── Transport: Prev | Play/Pause | Next ───────────────────────
             Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxWidth()) {
                 // Prev
                 LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
@@ -236,10 +236,10 @@ private fun AudioPlayerPortrait(
                                    else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                     }
                 }
-                // Play/Pause (centred, largest)
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    AnimatedPlayPauseButton(isPlaying = state.isPlaying, onClick = onPlayPause)
-                }
+                Spacer(Modifier.width(6.dp))
+                // Play/Pause
+                AnimatedPlayPauseButton(isPlaying = state.isPlaying, onClick = onPlayPause)
+                Spacer(Modifier.width(6.dp))
                 // Next
                 LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (isInPlaylist) 0.15f else 0.06f,
                     modifier = Modifier.size(44.dp)) {

@@ -53,7 +53,6 @@ fun VideoPlayerScreen(
 ) {
     val item = state.currentItem ?: return
     val hasLyrics = state.lyrics.isNotEmpty()
-    // Prev/Next only enabled for named playlists
     val isInPlaylist = state.isQueueMode && state.queue.size > 1 && state.currentPlaylistId != null
 
     var controlsVisible by remember { mutableStateOf(true) }
@@ -63,7 +62,6 @@ fun VideoPlayerScreen(
     LaunchedEffect(controlsVisible) { onHideBottomBar(!controlsVisible) }
     LaunchedEffect(Unit) { onHideBottomBar(true) }
 
-    // Auto-hide after 3s regardless of play/pause state
     LaunchedEffect(lastInteractionTime, controlsVisible) {
         if (controlsVisible) {
             delay(3000L)
@@ -76,7 +74,6 @@ fun VideoPlayerScreen(
 
     fun interact() { lastInteractionTime = System.currentTimeMillis() }
 
-    // Root Box handles tap: close speed panel > hide controls > show controls
     Box(
         modifier = modifier.fillMaxSize().background(Color.Black)
             .pointerInput(controlsVisible, speedExpanded) {
@@ -106,12 +103,114 @@ fun VideoPlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // ── Lyrics — full screen width, shifted higher when controls visible ──
+        // ── Controls overlay ───────────────────────────────────────────────
+        AnimatedVisibility(
+            visible = controlsVisible,
+            enter = fadeIn(tween(180)), exit = fadeOut(tween(180)),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            if (state.isLandscape) {
+                VideoControlsLandscape(
+                    state = state, item = item, hasLyrics = hasLyrics,
+                    isInPlaylist = isInPlaylist, speedExpanded = speedExpanded,
+                    onSpeedExpandedChange = { speedExpanded = it },
+                    onPlayPause = { onPlayPause(); interact() },
+                    onSkipForward = { onSkipForward(); interact() },
+                    onSkipBackward = { onSkipBackward(); interact() },
+                    onSeek = { onSeek(it); interact() },
+                    onSkipSecondsChange = { onSkipSecondsChange(it); interact() },
+                    onImportLyrics = { onImportLyrics(); interact() },
+                    onRemoveLyrics = { onRemoveLyrics(); interact() },
+                    onFavouriteToggle = { onFavouriteToggle(); interact() },
+                    onShuffleToggle = { onShuffleToggle(); interact() },
+                    onQueueToggle = { onQueueToggle(); interact() },
+                    onSpeedChange = { onSpeedChange(it); interact() },
+                    onPlayNext = { onPlayNext(); interact() },
+                    onPlayPrev = { onPlayPrev(); interact() },
+                    isFavourite = isFavourite,
+                    onRotate = { onRotate(); interact() }
+                )
+            } else {
+                VideoControlsPortrait(
+                    state = state, item = item, hasLyrics = hasLyrics,
+                    isInPlaylist = isInPlaylist, speedExpanded = speedExpanded,
+                    onSpeedExpandedChange = { speedExpanded = it },
+                    onPlayPause = { onPlayPause(); interact() },
+                    onSkipForward = { onSkipForward(); interact() },
+                    onSkipBackward = { onSkipBackward(); interact() },
+                    onSeek = { onSeek(it); interact() },
+                    onSkipSecondsChange = { onSkipSecondsChange(it); interact() },
+                    onImportLyrics = { onImportLyrics(); interact() },
+                    onRemoveLyrics = { onRemoveLyrics(); interact() },
+                    onFavouriteToggle = { onFavouriteToggle(); interact() },
+                    onShuffleToggle = { onShuffleToggle(); interact() },
+                    onQueueToggle = { onQueueToggle(); interact() },
+                    onSpeedChange = { onSpeedChange(it); interact() },
+                    onPlayNext = { onPlayNext(); interact() },
+                    onPlayPrev = { onPlayPrev(); interact() },
+                    isFavourite = isFavourite,
+                    onRotate = { onRotate(); interact() }
+                )
+            }
+        }
+    }
+}
+
+// ── Portrait controls ──────────────────────────────────────────────────────────
+@Composable
+private fun VideoControlsPortrait(
+    state: PlayerState,
+    item: com.velora.app.model.MediaItem,
+    hasLyrics: Boolean,
+    isInPlaylist: Boolean,
+    speedExpanded: Boolean,
+    onSpeedExpandedChange: (Boolean) -> Unit,
+    onPlayPause: () -> Unit,
+    onSkipForward: () -> Unit,
+    onSkipBackward: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onSkipSecondsChange: (Int) -> Unit,
+    onImportLyrics: () -> Unit,
+    onRemoveLyrics: () -> Unit,
+    onFavouriteToggle: () -> Unit,
+    onShuffleToggle: () -> Unit,
+    onQueueToggle: () -> Unit,
+    onSpeedChange: (Float) -> Unit,
+    onPlayNext: () -> Unit,
+    onPlayPrev: () -> Unit,
+    isFavourite: Boolean,
+    onRotate: () -> Unit
+) {
+    Box(Modifier.fillMaxSize()) {
+        // Top scrim
+        Box(Modifier.fillMaxWidth().height(120.dp)
+            .background(Brush.verticalGradient(listOf(Color.Black.copy(0.72f), Color.Transparent)))
+            .align(Alignment.TopCenter))
+
+        // Bottom scrim
+        Box(Modifier.fillMaxWidth().fillMaxHeight(0.6f)
+            .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.92f))))
+            .align(Alignment.BottomCenter))
+
+        // Title + rotate
+        Row(modifier = Modifier.align(Alignment.TopStart).fillMaxWidth()
+            .statusBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(item.title, style = MaterialTheme.typography.titleMedium,
+                color = Color.White, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(12.dp))
+            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.22f) {
+                IconButton(onClick = onRotate) {
+                    Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(20.dp), tint = Color.White)
+                }
+            }
+        }
+
+        // Lyrics — above controls, shifted up from bottom
         if (hasLyrics) {
-            val lyricsBottomPad by animateDpAsState(
-                targetValue = if (controlsVisible) 230.dp else 32.dp,
-                animationSpec = tween(250), label = "lyricsPad"
-            )
             LyricsOverlay(
                 lyrics = state.lyrics,
                 activeIndex = state.activeLyricIndex,
@@ -119,150 +218,291 @@ fun VideoPlayerScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(72.dp)
-                    .padding(bottom = lyricsBottomPad)
+                    .height(60.dp)
+                    .navigationBarsPadding()
+                    .padding(bottom = 200.dp)
             )
         }
 
-        // ── Controls overlay ───────────────────────────────────────────────
-        AnimatedVisibility(
-            visible = controlsVisible,
-            enter = fadeIn(tween(180)), exit = fadeOut(tween(180)),
-            modifier = Modifier.fillMaxSize()
+        // Centre transport
+        Row(modifier = Modifier.align(Alignment.Center),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            LiquidGlassSurface(cornerRadius = 999.dp,
+                alpha = if (isInPlaylist) 0.22f else 0.08f, modifier = Modifier.size(52.dp)) {
+                IconButton({ if (isInPlaylist) onPlayPrev() }, Modifier.fillMaxSize(), isInPlaylist) {
+                    Icon(Icons.Rounded.SkipPrevious, "Prev", Modifier.size(28.dp),
+                        tint = if (isInPlaylist) Color.White.copy(0.95f) else Color.White.copy(0.25f))
+                }
+            }
+            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.32f, modifier = Modifier.size(84.dp)) {
+                IconButton(onPlayPause, Modifier.fillMaxSize()) {
+                    AnimatedContent(state.isPlaying, label = "vpp") { playing ->
+                        Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            null, Modifier.size(46.dp), tint = Color.White)
+                    }
+                }
+            }
+            LiquidGlassSurface(cornerRadius = 999.dp,
+                alpha = if (isInPlaylist) 0.22f else 0.08f, modifier = Modifier.size(52.dp)) {
+                IconButton({ if (isInPlaylist) onPlayNext() }, Modifier.fillMaxSize(), isInPlaylist) {
+                    Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(28.dp),
+                        tint = if (isInPlaylist) Color.White.copy(0.95f) else Color.White.copy(0.25f))
+                }
+            }
+        }
+
+        // Bottom controls — proper nav bar padding
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Inner Box does NOT consume taps — they fall through to root pointerInput
-            Box(Modifier.fillMaxSize()) {
-                // Top scrim
-                Box(Modifier.fillMaxWidth().height(140.dp)
-                    .background(Brush.verticalGradient(listOf(Color.Black.copy(0.72f), Color.Transparent)))
-                    .align(Alignment.TopCenter))
+            MediaScrubber(
+                positionMs     = state.positionMs,
+                durationMs     = state.durationMs,
+                onSeek         = onSeek,
+                skipSeconds    = state.skipSeconds,
+                onSkipBackward = onSkipBackward,
+                onSkipForward  = onSkipForward,
+                isVideoOverlay = true,
+                modifier       = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                PlaybackSpeedControl(
+                    currentSpeed     = state.playbackSpeed,
+                    onSpeedChange    = onSpeedChange,
+                    expanded         = speedExpanded,
+                    onExpandedChange = onSpeedExpandedChange,
+                    isVideoOverlay   = true
+                )
+                AnimatedVisibility(!speedExpanded,
+                    enter = fadeIn(tween(180)) + expandHorizontally(),
+                    exit  = fadeOut(tween(150)) + shrinkHorizontally()) {
+                    SkipSecondsPillVideo(state.skipSeconds, onSkipSecondsChange)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onImportLyrics,
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
+                    Icon(Icons.Rounded.Lyrics, null, Modifier.size(14.dp), tint = Color.White.copy(0.7f))
+                    Spacer(Modifier.width(4.dp))
+                    Text(if (hasLyrics) "Change lyrics" else "Import lyrics",
+                        fontSize = 11.sp, color = Color.White.copy(0.7f))
+                }
+                if (hasLyrics) {
+                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.2f, modifier = Modifier.size(30.dp)) {
+                        IconButton(onRemoveLyrics, Modifier.fillMaxSize()) {
+                            Icon(Icons.Rounded.Close, "Remove", Modifier.size(14.dp), tint = Color(0xFFFF6B6B))
+                        }
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                LiquidGlassSurface(cornerRadius = 999.dp,
+                    alpha = if (state.isShuffle) 0.35f else 0.18f, modifier = Modifier.size(34.dp)) {
+                    IconButton(onShuffleToggle, Modifier.fillMaxSize()) {
+                        Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(15.dp),
+                            tint = if (state.isShuffle) Color.White else Color.White.copy(0.5f))
+                    }
+                }
+                LiquidGlassSurface(cornerRadius = 999.dp,
+                    alpha = if (state.isQueueMode) 0.35f else 0.18f, modifier = Modifier.size(34.dp)) {
+                    IconButton(onQueueToggle, Modifier.fillMaxSize()) {
+                        Icon(Icons.Rounded.QueueMusic, "Queue", Modifier.size(15.dp),
+                            tint = if (state.isQueueMode) Color.White else Color.White.copy(0.5f))
+                    }
+                }
+                HeartButton(isFavourite, onFavouriteToggle)
+            }
+        }
+    }
+}
 
-                // Bottom scrim — tall enough to cover all bottom controls + system nav
-                Box(Modifier.fillMaxWidth().fillMaxHeight(0.55f)
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.92f))))
-                    .align(Alignment.BottomCenter))
+// ── Landscape controls ─────────────────────────────────────────────────────────
+@Composable
+private fun VideoControlsLandscape(
+    state: PlayerState,
+    item: com.velora.app.model.MediaItem,
+    hasLyrics: Boolean,
+    isInPlaylist: Boolean,
+    speedExpanded: Boolean,
+    onSpeedExpandedChange: (Boolean) -> Unit,
+    onPlayPause: () -> Unit,
+    onSkipForward: () -> Unit,
+    onSkipBackward: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onSkipSecondsChange: (Int) -> Unit,
+    onImportLyrics: () -> Unit,
+    onRemoveLyrics: () -> Unit,
+    onFavouriteToggle: () -> Unit,
+    onShuffleToggle: () -> Unit,
+    onQueueToggle: () -> Unit,
+    onSpeedChange: (Float) -> Unit,
+    onPlayNext: () -> Unit,
+    onPlayPrev: () -> Unit,
+    isFavourite: Boolean,
+    onRotate: () -> Unit
+) {
+    Box(Modifier.fillMaxSize()) {
+        // Top scrim
+        Box(Modifier.fillMaxWidth().height(100.dp)
+            .background(Brush.verticalGradient(listOf(Color.Black.copy(0.65f), Color.Transparent)))
+            .align(Alignment.TopCenter))
 
-                // ── Title + rotate ─────────────────────────────────────────
-                Row(modifier = Modifier.align(Alignment.TopStart).fillMaxWidth()
-                    .statusBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+        // Bottom scrim
+        Box(Modifier.fillMaxWidth().fillMaxHeight(0.5f)
+            .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.88f))))
+            .align(Alignment.BottomCenter))
+
+        // Title row at top
+        Row(modifier = Modifier.align(Alignment.TopStart).fillMaxWidth()
+            .statusBarsPadding().padding(horizontal = 20.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(item.title, style = MaterialTheme.typography.titleSmall,
+                color = Color.White, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(12.dp))
+            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.22f) {
+                IconButton(onClick = onRotate) {
+                    Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(18.dp), tint = Color.White)
+                }
+            }
+        }
+
+        // Centre transport
+        Row(modifier = Modifier.align(Alignment.Center),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            LiquidGlassSurface(cornerRadius = 999.dp,
+                alpha = if (isInPlaylist) 0.22f else 0.08f, modifier = Modifier.size(44.dp)) {
+                IconButton({ if (isInPlaylist) onPlayPrev() }, Modifier.fillMaxSize(), isInPlaylist) {
+                    Icon(Icons.Rounded.SkipPrevious, "Prev", Modifier.size(24.dp),
+                        tint = if (isInPlaylist) Color.White.copy(0.95f) else Color.White.copy(0.25f))
+                }
+            }
+            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.32f, modifier = Modifier.size(72.dp)) {
+                IconButton(onPlayPause, Modifier.fillMaxSize()) {
+                    AnimatedContent(state.isPlaying, label = "vpp_ls") { playing ->
+                        Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            null, Modifier.size(38.dp), tint = Color.White)
+                    }
+                }
+            }
+            LiquidGlassSurface(cornerRadius = 999.dp,
+                alpha = if (isInPlaylist) 0.22f else 0.08f, modifier = Modifier.size(44.dp)) {
+                IconButton({ if (isInPlaylist) onPlayNext() }, Modifier.fillMaxSize(), isInPlaylist) {
+                    Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(24.dp),
+                        tint = if (isInPlaylist) Color.White.copy(0.95f) else Color.White.copy(0.25f))
+                }
+            }
+        }
+
+        // Lyrics if available
+        if (hasLyrics) {
+            LyricsOverlay(
+                lyrics = state.lyrics,
+                activeIndex = state.activeLyricIndex,
+                slideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(0.7f)
+                    .height(50.dp)
+                    .navigationBarsPadding()
+                    .padding(bottom = 140.dp)
+            )
+        }
+
+        // Bottom controls row — all in one row for landscape
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Speed + skip pill stacked left
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalAlignment = Alignment.Start,
+                modifier = Modifier.wrapContentWidth()
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text(item.title, style = MaterialTheme.typography.titleMedium,
-                        color = Color.White, fontWeight = FontWeight.SemiBold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f))
-                    Spacer(Modifier.width(12.dp))
-                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.22f) {
-                        IconButton(onClick = { onRotate(); interact() }) {
-                            Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(20.dp), tint = Color.White)
-                        }
-                    }
-                }
-
-                // ── Centre transport: Prev | Play/Pause | Next only ────────
-                // Rewind/forward are in the scrubber, not duplicated here
-                Row(modifier = Modifier.align(Alignment.Center),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    LiquidGlassSurface(cornerRadius = 999.dp,
-                        alpha = if (isInPlaylist) 0.22f else 0.08f, modifier = Modifier.size(52.dp)) {
-                        IconButton({ if (isInPlaylist) { onPlayPrev(); interact() } },
-                            Modifier.fillMaxSize(), isInPlaylist) {
-                            Icon(Icons.Rounded.SkipPrevious, "Prev", Modifier.size(28.dp),
-                                tint = if (isInPlaylist) Color.White.copy(0.95f) else Color.White.copy(0.25f))
-                        }
-                    }
-                    // Play/Pause — largest button
-                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.32f, modifier = Modifier.size(84.dp)) {
-                        IconButton({ onPlayPause(); interact() }, Modifier.fillMaxSize()) {
-                            AnimatedContent(state.isPlaying, label = "vpp") { playing ->
-                                Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                    null, Modifier.size(46.dp), tint = Color.White)
-                            }
-                        }
-                    }
-                    LiquidGlassSurface(cornerRadius = 999.dp,
-                        alpha = if (isInPlaylist) 0.22f else 0.08f, modifier = Modifier.size(52.dp)) {
-                        IconButton({ if (isInPlaylist) { onPlayNext(); interact() } },
-                            Modifier.fillMaxSize(), isInPlaylist) {
-                            Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(28.dp),
-                                tint = if (isInPlaylist) Color.White.copy(0.95f) else Color.White.copy(0.25f))
-                        }
-                    }
-                }
-
-                // ── Bottom controls ────────────────────────────────────────
-                // Use WindowInsets directly so padding works in both portrait & landscape
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Scrubber WITH rewind/forward flanking buttons (no duplicates elsewhere)
-                    MediaScrubber(
-                        positionMs     = state.positionMs,
-                        durationMs     = state.durationMs,
-                        onSeek         = { onSeek(it); interact() },
-                        skipSeconds    = state.skipSeconds,
-                        onSkipBackward = { onSkipBackward(); interact() },
-                        onSkipForward  = { onSkipForward(); interact() },
-                        isVideoOverlay = true,
-                        modifier       = Modifier.fillMaxWidth()
+                    PlaybackSpeedControl(
+                        currentSpeed     = state.playbackSpeed,
+                        onSpeedChange    = onSpeedChange,
+                        expanded         = speedExpanded,
+                        onExpandedChange = onSpeedExpandedChange,
+                        isVideoOverlay   = true
                     )
-                    // Speed + skip seconds
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        PlaybackSpeedControl(
-                            currentSpeed     = state.playbackSpeed,
-                            onSpeedChange    = { onSpeedChange(it); interact() },
-                            expanded         = speedExpanded,
-                            onExpandedChange = { speedExpanded = it },
-                            isVideoOverlay   = true
-                        )
-                        AnimatedVisibility(!speedExpanded,
-                            enter = fadeIn(tween(180)) + expandHorizontally(),
-                            exit  = fadeOut(tween(150)) + shrinkHorizontally()) {
-                            SkipSecondsPillVideo(state.skipSeconds) { onSkipSecondsChange(it); interact() }
+                    AnimatedVisibility(!speedExpanded,
+                        enter = fadeIn(tween(180)) + expandHorizontally(),
+                        exit  = fadeOut(tween(150)) + shrinkHorizontally()) {
+                        SkipSecondsPillVideo(state.skipSeconds, onSkipSecondsChange)
+                    }
+                }
+            }
+
+            // Scrubber takes remaining space
+            Column(modifier = Modifier.weight(1f)) {
+                MediaScrubber(
+                    positionMs     = state.positionMs,
+                    durationMs     = state.durationMs,
+                    onSeek         = onSeek,
+                    skipSeconds    = state.skipSeconds,
+                    onSkipBackward = onSkipBackward,
+                    onSkipForward  = onSkipForward,
+                    isVideoOverlay = true,
+                    modifier       = Modifier.fillMaxWidth()
+                )
+            }
+
+            // Icons stacked right
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onImportLyrics,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
+                        Icon(Icons.Rounded.Lyrics, null, Modifier.size(13.dp), tint = Color.White.copy(0.7f))
+                        Spacer(Modifier.width(3.dp))
+                        Text(if (hasLyrics) "Change" else "Lyrics",
+                            fontSize = 10.sp, color = Color.White.copy(0.7f))
+                    }
+                    if (hasLyrics) {
+                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.2f, modifier = Modifier.size(26.dp)) {
+                            IconButton(onRemoveLyrics, Modifier.fillMaxSize()) {
+                                Icon(Icons.Rounded.Close, "Remove", Modifier.size(12.dp), tint = Color(0xFFFF6B6B))
+                            }
                         }
                     }
-                    // Lyrics + shuffle/queue/fav
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { onImportLyrics(); interact() },
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
-                            Icon(Icons.Rounded.Lyrics, null, Modifier.size(14.dp), tint = Color.White.copy(0.7f))
-                            Spacer(Modifier.width(4.dp))
-                            Text(if (hasLyrics) "Change lyrics" else "Import lyrics",
-                                fontSize = 11.sp, color = Color.White.copy(0.7f))
+                    LiquidGlassSurface(cornerRadius = 999.dp,
+                        alpha = if (state.isShuffle) 0.35f else 0.18f, modifier = Modifier.size(30.dp)) {
+                        IconButton(onShuffleToggle, Modifier.fillMaxSize()) {
+                            Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(14.dp),
+                                tint = if (state.isShuffle) Color.White else Color.White.copy(0.5f))
                         }
-                        if (hasLyrics) {
-                            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.2f, modifier = Modifier.size(30.dp)) {
-                                IconButton({ onRemoveLyrics(); interact() }, Modifier.fillMaxSize()) {
-                                    Icon(Icons.Rounded.Close, "Remove", Modifier.size(14.dp), tint = Color(0xFFFF6B6B))
-                                }
-                            }
-                        }
-                        Spacer(Modifier.weight(1f))
-                        LiquidGlassSurface(cornerRadius = 999.dp,
-                            alpha = if (state.isShuffle) 0.35f else 0.18f, modifier = Modifier.size(34.dp)) {
-                            IconButton({ onShuffleToggle(); interact() }, Modifier.fillMaxSize()) {
-                                Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(15.dp),
-                                    tint = if (state.isShuffle) Color.White else Color.White.copy(0.5f))
-                            }
-                        }
-                        LiquidGlassSurface(cornerRadius = 999.dp,
-                            alpha = if (state.isQueueMode) 0.35f else 0.18f, modifier = Modifier.size(34.dp)) {
-                            IconButton({ onQueueToggle(); interact() }, Modifier.fillMaxSize()) {
-                                Icon(Icons.Rounded.QueueMusic, "Queue", Modifier.size(15.dp),
-                                    tint = if (state.isQueueMode) Color.White else Color.White.copy(0.5f))
-                            }
-                        }
-                        HeartButton(isFavourite, { onFavouriteToggle(); interact() })
                     }
+                    LiquidGlassSurface(cornerRadius = 999.dp,
+                        alpha = if (state.isQueueMode) 0.35f else 0.18f, modifier = Modifier.size(30.dp)) {
+                        IconButton(onQueueToggle, Modifier.fillMaxSize()) {
+                            Icon(Icons.Rounded.QueueMusic, "Queue", Modifier.size(14.dp),
+                                tint = if (state.isQueueMode) Color.White else Color.White.copy(0.5f))
+                        }
+                    }
+                    HeartButton(isFavourite, onFavouriteToggle)
                 }
             }
         }

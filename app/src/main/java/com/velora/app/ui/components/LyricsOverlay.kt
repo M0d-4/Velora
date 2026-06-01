@@ -16,7 +16,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.velora.app.model.LyricLine
-import kotlinx.coroutines.launch
 
 enum class LyricsSlideDirection { LEFT_TO_RIGHT, UP }
 
@@ -63,16 +62,12 @@ fun LyricsOverlay(
         }
     } else {
         val listState = rememberLazyListState()
-        val scope = rememberCoroutineScope()
-
         LaunchedEffect(activeIndex) {
             if (activeIndex >= 0) {
-                scope.launch {
-                    listState.animateScrollToItem(
-                        index = (activeIndex - 1).coerceAtLeast(0),
-                        scrollOffset = 0
-                    )
-                }
+                listState.animateScrollToItem(
+                    index = maxOf(0, activeIndex - 2),
+                    scrollOffset = 0
+                )
             }
         }
 
