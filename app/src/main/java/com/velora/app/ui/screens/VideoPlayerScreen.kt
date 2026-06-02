@@ -106,6 +106,36 @@ fun VideoPlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
+        // Lyrics always visible regardless of controls — rendered outside AnimatedVisibility
+        if (state.lyrics.isNotEmpty()) {
+            if (state.isLandscape) {
+                // Landscape: compact strip above the bottom controls area
+                LyricsOverlay(
+                    lyrics = state.lyrics,
+                    activeIndex = state.activeLyricIndex,
+                    slideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth(0.75f)
+                        .heightIn(min = 40.dp, max = 110.dp)
+                        .padding(bottom = 76.dp)
+                )
+            } else {
+                // Portrait: sits above the bottom controls column
+                LyricsOverlay(
+                    lyrics = state.lyrics,
+                    activeIndex = state.activeLyricIndex,
+                    slideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp, max = 140.dp)
+                        .padding(bottom = 148.dp)
+                        .padding(horizontal = 16.dp)
+                )
+            }
+        }
+
         AnimatedVisibility(
             visible = controlsVisible,
             enter = fadeIn(tween(180)), exit = fadeOut(tween(180)),
@@ -251,19 +281,6 @@ private fun VideoControlsPortrait(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Lyrics just above scrubber
-            if (hasLyrics) {
-                LyricsOverlay(
-                    lyrics = state.lyrics,
-                    activeIndex = state.activeLyricIndex,
-                    singleLine = true,
-                    slideDirection = LyricsSlideDirection.UP,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 28.dp, max = 48.dp)
-                        .padding(horizontal = 24.dp)
-                )
-            }
             // Scrubber
             MediaScrubber(
                 positionMs     = state.positionMs,
@@ -420,19 +437,6 @@ private fun VideoControlsLandscape(
                 .padding(start = 20.dp, end = 20.dp, bottom = 10.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Lyrics just above scrubber
-            if (hasLyrics) {
-                LyricsOverlay(
-                    lyrics = state.lyrics,
-                    activeIndex = state.activeLyricIndex,
-                    singleLine = true,
-                    slideDirection = LyricsSlideDirection.UP,
-                    modifier = Modifier
-                        .fillMaxWidth(0.75f)
-                        .heightIn(min = 24.dp, max = 44.dp)
-                        .align(Alignment.CenterHorizontally)
-                )
-            }
             // Scrubber
             MediaScrubber(
                 positionMs     = state.positionMs,

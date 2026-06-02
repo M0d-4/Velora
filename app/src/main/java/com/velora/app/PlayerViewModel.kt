@@ -287,27 +287,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             newQueueIndex = if (existingIdx >= 0) existingIdx else 0
             newQueueMode = currentState.isQueueMode
         } else {
-            // Fresh play with no prior queue — try to find a playlist containing this item
+            // Fresh play with no prior queue — never auto-assign a playlist context.
+            // Only playPlaylist() / continueInPlaylist() should set currentPlaylistId.
             val allMedia = currentState.mediaList + currentState.extraMediaList
-            val matchingPlaylist = currentState.playlists
-                .firstOrNull { !it.isFavourites && it.itemIds.contains(resolvedItem.id) }
-            if (matchingPlaylist != null) {
-                val items = matchingPlaylist.itemIds
-                    .mapNotNull { id -> allMedia.firstOrNull { it.id == id } }
-                val idx = items.indexOfFirst { it.id == resolvedItem.id }
-                newPlaylistId = matchingPlaylist.id
-                newQueue = items
-                newQueueIndex = if (idx >= 0) idx else 0
-                newQueueMode = true
-            } else {
-                // No named playlist — build a fallback queue from all available media
-                val allMedia = currentState.mediaList + currentState.extraMediaList
-                val idx = allMedia.indexOfFirst { it.id == resolvedItem.id }
-                newPlaylistId = null
-                newQueue = allMedia
-                newQueueIndex = if (idx >= 0) idx else 0
-                newQueueMode = false
-            }
+            val idx = allMedia.indexOfFirst { it.id == resolvedItem.id }
+            newPlaylistId = null
+            newQueue = allMedia
+            newQueueIndex = if (idx >= 0) idx else 0
+            newQueueMode = false
         }
 
         _state.update { it.copy(
@@ -396,7 +383,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun advanceQueue(forward: Boolean = true) {
         val s = _state.value
-        if (s.queue.size < 2) return
+        // Only advance when Play Next is explicitly on
+        if (!s.isQueueMode || s.queue.size < 2) return
         // If shuffle, pick a different random track within same playlist
         val nextIdx = if (s.isShuffle) {
             val candidates = s.queue.indices.filter { it != s.queueIndex }
