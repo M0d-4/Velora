@@ -36,14 +36,19 @@ fun LyricsOverlay(
     if (lyrics.isEmpty()) return
 
     if (singleLine) {
-        // Landscape audio: one line at a time, slow left→right slide
+        // Single line at a time — slide direction controlled by the caller
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
             AnimatedContent(
                 targetState = activeIndex,
                 transitionSpec = {
-                    // Enter from left, exit to right  
-                    (slideInHorizontally(tween(600)) { -it / 2 } + fadeIn(tween(600))) togetherWith
-                    (slideOutHorizontally(tween(400)) { it / 2 } + fadeOut(tween(300)))
+                    when (slideDirection) {
+                        LyricsSlideDirection.UP ->
+                            (slideInVertically(tween(500)) { it } + fadeIn(tween(400))) togetherWith
+                            (slideOutVertically(tween(350)) { -it } + fadeOut(tween(300)))
+                        LyricsSlideDirection.LEFT_TO_RIGHT ->
+                            (slideInHorizontally(tween(600)) { -it / 2 } + fadeIn(tween(600))) togetherWith
+                            (slideOutHorizontally(tween(400)) { it / 2 } + fadeOut(tween(300)))
+                    }
                 },
                 label = "lyric_single"
             ) { idx ->
