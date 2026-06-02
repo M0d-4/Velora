@@ -5,8 +5,8 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Forward
 import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.Redo
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -180,7 +180,7 @@ fun MediaScrubber(
                         .size(36.dp)
                         .graphicsLayer { scaleX = forwardScale; scaleY = forwardScale }
                 ) {
-                    Icon(Icons.Rounded.Forward, "+${skipSeconds}s",
+                    Icon(Icons.Rounded.Redo, "+${skipSeconds}s",
                         modifier = Modifier.size(22.dp), tint = iconTint)
                 }
             }

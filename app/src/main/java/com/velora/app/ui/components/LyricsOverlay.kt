@@ -62,12 +62,27 @@ fun LyricsOverlay(
         }
     } else {
         val listState = rememberLazyListState()
+
+        // Scroll so the active lyric line appears centered in the visible area
         LaunchedEffect(activeIndex) {
             if (activeIndex >= 0) {
-                listState.animateScrollToItem(
-                    index = maxOf(0, activeIndex - 2),
-                    scrollOffset = 0
-                )
+                val visibleInfo = listState.layoutInfo
+                val viewportHeight = visibleInfo.viewportEndOffset - visibleInfo.viewportStartOffset
+                val itemInfo = visibleInfo.visibleItemsInfo.firstOrNull { it.index == activeIndex }
+                if (itemInfo != null) {
+                    // Item already visible — scroll so it's centered
+                    val offset = itemInfo.offset - (viewportHeight / 2) + (itemInfo.size / 2)
+                    listState.animateScrollToItem(
+                        index = activeIndex,
+                        scrollOffset = -(viewportHeight / 2 - itemInfo.size / 2)
+                    )
+                } else {
+                    // Item not yet visible — jump to it with centering offset
+                    listState.animateScrollToItem(
+                        index = activeIndex,
+                        scrollOffset = -viewportHeight / 2
+                    )
+                }
             }
         }
 
