@@ -270,15 +270,24 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val newQueueMode: Boolean
 
         if (currentState.currentPlaylistId != null) {
-            // Already in a playlist context — keep it, just update position
+            // Already in a named playlist context — keep it, just update position
             val existingQueue = currentState.queue
             val existingIdx = existingQueue.indexOfFirst { it.id == resolvedItem.id }
             newPlaylistId = currentState.currentPlaylistId
             newQueue = existingQueue
             newQueueIndex = if (existingIdx >= 0) existingIdx else 0
             newQueueMode = true
+        } else if (currentState.queue.isNotEmpty()) {
+            // Already have a fallback/all-media queue — keep navigating within it,
+            // never auto-switch into a playlist just because the item belongs to one.
+            val existingQueue = currentState.queue
+            val existingIdx = existingQueue.indexOfFirst { it.id == resolvedItem.id }
+            newPlaylistId = null
+            newQueue = existingQueue
+            newQueueIndex = if (existingIdx >= 0) existingIdx else 0
+            newQueueMode = currentState.isQueueMode
         } else {
-            // Not in a playlist — try to find a playlist containing this item
+            // Fresh play with no prior queue — try to find a playlist containing this item
             val allMedia = currentState.mediaList + currentState.extraMediaList
             val matchingPlaylist = currentState.playlists
                 .firstOrNull { !it.isFavourites && it.itemIds.contains(resolvedItem.id) }
@@ -292,7 +301,6 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 newQueueMode = true
             } else {
                 // No named playlist — build a fallback queue from all available media
-                // so Prev/Next buttons still work when playing from the full library.
                 val allMedia = currentState.mediaList + currentState.extraMediaList
                 val idx = allMedia.indexOfFirst { it.id == resolvedItem.id }
                 newPlaylistId = null

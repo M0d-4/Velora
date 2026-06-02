@@ -188,12 +188,10 @@ private fun AudioPlayerPortrait(
                     lyrics = state.lyrics,
                     activeIndex = state.activeLyricIndex,
                     slideDirection = LyricsSlideDirection.UP,
-                    modifier = Modifier.fillMaxWidth().weight(0.4f).heightIn(min = 80.dp)
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp, max = 120.dp)
                 )
-            } else {
-                Spacer(Modifier.weight(0.4f))
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
 
             // ── Shuffle + Queue ───────────────────────────────────────────
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -327,29 +325,25 @@ private fun AudioPlayerLandscape(
             .padding(horizontal = 20.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp)) {
 
-            // Left: art + title + lyrics
-            Column(modifier = Modifier.weight(0.44f).fillMaxHeight(),
-                horizontalAlignment = Alignment.CenterHorizontally) {
-                Spacer(Modifier.height(4.dp))
-                AnimatedAlbumArt(item, state.isPlaying, 140)
-                Spacer(Modifier.height(10.dp))
-                Text(item.title, style = MaterialTheme.typography.titleSmall,
+            // Left: art + title + artist — fills full height, no lyrics here
+            Column(
+                modifier = Modifier.weight(0.44f).fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                AnimatedAlbumArt(item, state.isPlaying, 150)
+                Spacer(Modifier.height(12.dp))
+                Text(item.title, style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                     maxLines = 2, overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurface)
-                Spacer(Modifier.height(3.dp))
-                Text(item.artist, style = MaterialTheme.typography.bodySmall,
+                Spacer(Modifier.height(4.dp))
+                Text(item.artist, style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(0.6f),
                     textAlign = TextAlign.Center, maxLines = 1)
-                if (hasLyrics) {
-                    Spacer(Modifier.height(8.dp))
-                    LyricsOverlay(state.lyrics, state.activeLyricIndex,
-                        singleLine = false, slideDirection = LyricsSlideDirection.UP,
-                        modifier = Modifier.fillMaxWidth().weight(1f))
-                } else Spacer(Modifier.weight(1f))
             }
 
-            // Right: all controls
+            // Right: all controls, with lyrics overlaid on the transport row
             Column(modifier = Modifier.weight(0.56f).fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally) {
 
@@ -372,27 +366,44 @@ private fun AudioPlayerLandscape(
                 }
                 Spacer(Modifier.weight(1f))
 
-                // Transport: Prev | Play | Next — above secondary controls
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()) {
-                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f,
-                        modifier = Modifier.size(42.dp)) {
-                        IconButton({ if (canSkip) onPlayPrev() }, Modifier.fillMaxSize(), canSkip) {
-                            Icon(Icons.Rounded.SkipPrevious, "Prev", Modifier.size(24.dp),
-                                tint = if (canSkip) MaterialTheme.colorScheme.onSurface.copy(0.85f)
-                                       else MaterialTheme.colorScheme.onSurface.copy(0.25f))
-                        }
+                // Transport row with lyrics overlaid above the play button
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    // Lyrics float above the play/pause button when available
+                    if (hasLyrics) {
+                        LyricsOverlay(
+                            lyrics = state.lyrics,
+                            activeIndex = state.activeLyricIndex,
+                            singleLine = true,
+                            slideDirection = LyricsSlideDirection.UP,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.TopCenter)
+                                .padding(bottom = 80.dp)
+                                .heightIn(max = 60.dp)
+                        )
                     }
-                    Spacer(Modifier.width(12.dp))
-                    AnimatedPlayPauseButton(isPlaying = state.isPlaying, onClick = onPlayPause)
-                    Spacer(Modifier.width(12.dp))
-                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f,
-                        modifier = Modifier.size(42.dp)) {
-                        IconButton({ if (canSkip) onPlayNext() }, Modifier.fillMaxSize(), canSkip) {
-                            Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(24.dp),
-                                tint = if (canSkip) MaterialTheme.colorScheme.onSurface.copy(0.85f)
-                                       else MaterialTheme.colorScheme.onSurface.copy(0.25f))
+                    // Prev | Play | Next
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)) {
+                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f,
+                            modifier = Modifier.size(42.dp)) {
+                            IconButton({ if (canSkip) onPlayPrev() }, Modifier.fillMaxSize(), canSkip) {
+                                Icon(Icons.Rounded.SkipPrevious, "Prev", Modifier.size(24.dp),
+                                    tint = if (canSkip) MaterialTheme.colorScheme.onSurface.copy(0.85f)
+                                           else MaterialTheme.colorScheme.onSurface.copy(0.25f))
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        AnimatedPlayPauseButton(isPlaying = state.isPlaying, onClick = onPlayPause)
+                        Spacer(Modifier.width(12.dp))
+                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f,
+                            modifier = Modifier.size(42.dp)) {
+                            IconButton({ if (canSkip) onPlayNext() }, Modifier.fillMaxSize(), canSkip) {
+                                Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(24.dp),
+                                    tint = if (canSkip) MaterialTheme.colorScheme.onSurface.copy(0.85f)
+                                           else MaterialTheme.colorScheme.onSurface.copy(0.25f))
+                            }
                         }
                     }
                 }
