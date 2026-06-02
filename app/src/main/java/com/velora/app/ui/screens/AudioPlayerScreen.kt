@@ -188,10 +188,10 @@ private fun AudioPlayerPortrait(
                     lyrics = state.lyrics,
                     activeIndex = state.activeLyricIndex,
                     slideDirection = LyricsSlideDirection.UP,
-                    modifier = Modifier.fillMaxWidth().weight(1f).heightIn(min = 80.dp)
+                    modifier = Modifier.fillMaxWidth().weight(0.4f).heightIn(min = 80.dp)
                 )
             } else {
-                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.weight(0.4f))
             }
             Spacer(Modifier.height(8.dp))
 
@@ -372,6 +372,32 @@ private fun AudioPlayerLandscape(
                 }
                 Spacer(Modifier.weight(1f))
 
+                // Transport: Prev | Play | Next — above secondary controls
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()) {
+                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f,
+                        modifier = Modifier.size(42.dp)) {
+                        IconButton({ if (canSkip) onPlayPrev() }, Modifier.fillMaxSize(), canSkip) {
+                            Icon(Icons.Rounded.SkipPrevious, "Prev", Modifier.size(24.dp),
+                                tint = if (canSkip) MaterialTheme.colorScheme.onSurface.copy(0.85f)
+                                       else MaterialTheme.colorScheme.onSurface.copy(0.25f))
+                        }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    AnimatedPlayPauseButton(isPlaying = state.isPlaying, onClick = onPlayPause)
+                    Spacer(Modifier.width(12.dp))
+                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f,
+                        modifier = Modifier.size(42.dp)) {
+                        IconButton({ if (canSkip) onPlayNext() }, Modifier.fillMaxSize(), canSkip) {
+                            Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(24.dp),
+                                tint = if (canSkip) MaterialTheme.colorScheme.onSurface.copy(0.85f)
+                                       else MaterialTheme.colorScheme.onSurface.copy(0.25f))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+
                 // Secondary controls: shuffle | queue | import lyrics | skip-seconds | favourite
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -408,7 +434,7 @@ private fun AudioPlayerLandscape(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Icon(Icons.Rounded.Lyrics, null, Modifier.size(14.dp),
                                 tint = MaterialTheme.colorScheme.primary.copy(0.7f))
-                            Text(if (hasLyrics) "Change" else "Lyrics",
+                            Text(if (hasLyrics) "Change" else "Import Lyrics",
                                 fontSize = 11.sp, color = MaterialTheme.colorScheme.primary.copy(0.7f))
                             if (hasLyrics) {
                                 Spacer(Modifier.width(2.dp))
@@ -429,32 +455,6 @@ private fun AudioPlayerLandscape(
                         onSkipSecondsChange = onSkipSecondsChange,
                         onFavouriteToggle = onFavouriteToggle
                     )
-                }
-                Spacer(Modifier.height(8.dp))
-
-                // Transport: Prev | Play | Next — compact, centered
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()) {
-                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f,
-                        modifier = Modifier.size(42.dp)) {
-                        IconButton({ if (canSkip) onPlayPrev() }, Modifier.fillMaxSize(), canSkip) {
-                            Icon(Icons.Rounded.SkipPrevious, "Prev", Modifier.size(24.dp),
-                                tint = if (canSkip) MaterialTheme.colorScheme.onSurface.copy(0.85f)
-                                       else MaterialTheme.colorScheme.onSurface.copy(0.25f))
-                        }
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    AnimatedPlayPauseButton(isPlaying = state.isPlaying, onClick = onPlayPause)
-                    Spacer(Modifier.width(12.dp))
-                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f,
-                        modifier = Modifier.size(42.dp)) {
-                        IconButton({ if (canSkip) onPlayNext() }, Modifier.fillMaxSize(), canSkip) {
-                            Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(24.dp),
-                                tint = if (canSkip) MaterialTheme.colorScheme.onSurface.copy(0.85f)
-                                       else MaterialTheme.colorScheme.onSurface.copy(0.25f))
-                        }
-                    }
                 }
                 Spacer(Modifier.height(8.dp))
 

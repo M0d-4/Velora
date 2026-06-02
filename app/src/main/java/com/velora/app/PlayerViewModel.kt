@@ -291,10 +291,13 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 newQueueIndex = if (idx >= 0) idx else 0
                 newQueueMode = true
             } else {
-                // No named playlist — no queue, Prev/Next buttons show but do nothing.
+                // No named playlist — build a fallback queue from all available media
+                // so Prev/Next buttons still work when playing from the full library.
+                val allMedia = currentState.mediaList + currentState.extraMediaList
+                val idx = allMedia.indexOfFirst { it.id == resolvedItem.id }
                 newPlaylistId = null
-                newQueue = emptyList()
-                newQueueIndex = 0
+                newQueue = allMedia
+                newQueueIndex = if (idx >= 0) idx else 0
                 newQueueMode = false
             }
         }
@@ -378,7 +381,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun advanceQueue(forward: Boolean = true) {
         val s = _state.value
-        if (s.currentPlaylistId == null || s.queue.size < 2) return
+        if (s.queue.size < 2) return
         // If shuffle, pick a different random track within same playlist
         val nextIdx = if (s.isShuffle) {
             val candidates = s.queue.indices.filter { it != s.queueIndex }
