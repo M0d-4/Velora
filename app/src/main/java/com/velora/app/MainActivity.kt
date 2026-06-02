@@ -207,7 +207,6 @@ fun VeloraApp(
         Box(modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(top = if (isVideoPlayer) 0.dp else innerPadding.calculateTopPadding())
         ) {
             HorizontalPager(
                 state = pagerState,

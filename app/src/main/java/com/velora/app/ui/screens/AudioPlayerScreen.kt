@@ -435,9 +435,9 @@ private fun AudioPlayerLandscape(
                 }
                 Spacer(Modifier.height(8.dp))
 
-                // Transport: Prev | Play | Next — fixed height row, no AnimatedVisibility
+                // Transport: Prev | Play | Next — compact, centered
                 Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()) {
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f,
                         modifier = Modifier.size(34.dp)) {
@@ -447,9 +447,9 @@ private fun AudioPlayerLandscape(
                                        else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                         }
                     }
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        AnimatedPlayPauseButton(isPlaying = state.isPlaying, onClick = onPlayPause)
-                    }
+                    Spacer(Modifier.width(8.dp))
+                    AnimatedPlayPauseButton(isPlaying = state.isPlaying, onClick = onPlayPause)
+                    Spacer(Modifier.width(8.dp))
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f,
                         modifier = Modifier.size(34.dp)) {
                         IconButton({ if (canSkip) onPlayNext() }, Modifier.fillMaxSize(), canSkip) {

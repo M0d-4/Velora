@@ -83,7 +83,7 @@ fun PlaybackSpeedControl(
                 cornerRadius = 999.dp,
                 alpha = if (isVideoOverlay) 0.28f else 0.18f,
                 modifier = Modifier
-                    .wrapContentWidth()
+                    .wrapContentWidth(unbounded = true)
                     // Consume horizontal drag so pager doesn't intercept
                     .pointerInput(Unit) { detectHorizontalDragGestures { _, _ -> } }
             ) {

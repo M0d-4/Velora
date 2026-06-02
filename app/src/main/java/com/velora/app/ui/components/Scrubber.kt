@@ -6,7 +6,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Replay
-import androidx.compose.material.icons.rounded.Redo
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -180,30 +179,32 @@ fun MediaScrubber(
                         .size(36.dp)
                         .graphicsLayer { scaleX = forwardScale; scaleY = forwardScale }
                 ) {
-                    Icon(Icons.Rounded.Redo, "+${skipSeconds}s",
-                        modifier = Modifier.size(22.dp), tint = iconTint)
+                    Icon(Icons.Rounded.Replay, "+${skipSeconds}s",
+                        modifier = Modifier.size(22.dp).graphicsLayer { scaleX = -1f }, tint = iconTint)
                 }
             }
         }
 
         // ── Time labels ────────────────────────────────────────────────────
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = if (onSkipBackward != null && showSkipButtons) 40.dp else 0.dp, vertical = 0.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
+            // Pad left to align under track start (skip button width + spacing)
+            val sidePad = if (onSkipBackward != null && showSkipButtons) 40.dp else 0.dp
             Text(
                 text = MediaRepository.formatDuration(
                     if (isDragging) (dragProgress * durationMs).toLong() else positionMs
                 ),
                 style = MaterialTheme.typography.labelSmall,
-                color = timeTint, fontWeight = FontWeight.Medium, fontSize = 11.sp
+                color = timeTint, fontWeight = FontWeight.Medium, fontSize = 11.sp,
+                modifier = Modifier.padding(start = sidePad)
             )
             Text(
                 text = MediaRepository.formatDuration(durationMs),
                 style = MaterialTheme.typography.labelSmall,
-                color = timeTint, fontWeight = FontWeight.Medium, fontSize = 11.sp
+                color = timeTint, fontWeight = FontWeight.Medium, fontSize = 11.sp,
+                modifier = Modifier.padding(end = sidePad)
             )
         }
     }
