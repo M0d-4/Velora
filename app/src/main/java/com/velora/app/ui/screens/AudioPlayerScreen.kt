@@ -58,7 +58,8 @@ fun AudioPlayerScreen(
     ) { landscape ->
         if (landscape) {
             AudioPlayerLandscape(state, item, onPlayPause, onSkipForward, onSkipBackward,
-                onSeek, onSkipSecondsChange, onFavouriteToggle, onShuffleToggle,
+                onSeek, onSkipSecondsChange, onImportLyrics, onRemoveLyrics,
+                onFavouriteToggle, onShuffleToggle,
                 onQueueToggle, onSpeedChange, onPlayNext, onPlayPrev,
                 isFavourite, onRotate, modifier)
         } else {
