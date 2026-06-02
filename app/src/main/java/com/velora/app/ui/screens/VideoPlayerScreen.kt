@@ -277,9 +277,9 @@ private fun VideoControlsPortrait(
                 isVideoOverlay = true,
                 modifier       = Modifier.fillMaxWidth()
             )
-            // Speed + skip seconds in a fixed-height row so scrubber doesn't jump
+            // Speed + skip seconds row — no fixed height so text never clips
             Row(
-                modifier = Modifier.fillMaxWidth().height(40.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -447,9 +447,9 @@ private fun VideoControlsLandscape(
                 isVideoOverlay = true,
                 modifier       = Modifier.fillMaxWidth()
             )
-            // Speed + skip + actions row
+            // Speed + skip + actions row — no fixed height so text never clips
             Row(
-                modifier = Modifier.fillMaxWidth().height(36.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

@@ -203,20 +203,18 @@ fun VeloraApp(
         )
     }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, containerColor = Color.Transparent) { innerPadding ->
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Color.Transparent,
+        contentWindowInsets = WindowInsets(0)
+    ) { _ ->
         Box(modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
         ) {
             HorizontalPager(
                 state = pagerState,
-                // Video player manages its own insets; other pages need space for the pill nav
-                modifier = Modifier.fillMaxSize()
-                    .padding(bottom = when {
-                        isVideoFullscreen || isAudioLandscape -> 0.dp
-                        isVideoPlayer -> 0.dp   // video handles its own nav padding
-                        else -> 56.dp
-                    }),
+                modifier = Modifier.fillMaxSize(),
                 userScrollEnabled = !isVideoFullscreen && !isAudioLandscape
             ) { page ->
                 when (page) {
@@ -316,7 +314,11 @@ fun VeloraApp(
 
             // Bottom nav — hidden for video player (always), audio landscape, video fullscreen
             // Show bottom nav everywhere except true fullscreen / landscape audio
-            val showBottomNav = !isVideoFullscreen && !isAudioLandscape
+            // Hide bottom nav when video page is visible at all (during swipe or settled)
+            val videoPageOffset = kotlin.math.abs(pagerState.currentPageOffsetFraction)
+            val nearVideoPage = (pagerState.currentPage == 1 && state.currentItem?.isVideo == true) ||
+                (pagerState.targetPage == 1 && state.currentItem?.isVideo == true && videoPageOffset > 0.1f)
+            val showBottomNav = !isVideoFullscreen && !isAudioLandscape && !nearVideoPage
             AnimatedVisibility(
                 visible = showBottomNav,
                 enter = slideInVertically { it } + fadeIn(),
