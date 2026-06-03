@@ -278,14 +278,24 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             newQueueIndex = if (existingIdx >= 0) existingIdx else 0
             newQueueMode = true
         } else if (currentState.queue.isNotEmpty()) {
-            // Already have a fallback/all-media queue — keep navigating within it,
-            // never auto-switch into a playlist just because the item belongs to one.
             val existingQueue = currentState.queue
             val existingIdx = existingQueue.indexOfFirst { it.id == resolvedItem.id }
-            newPlaylistId = null
-            newQueue = existingQueue
-            newQueueIndex = if (existingIdx >= 0) existingIdx else 0
-            newQueueMode = currentState.isQueueMode
+            if (existingIdx >= 0) {
+                // Item is in the current queue — stay in it (preserves both playlist and library queues)
+                newPlaylistId = null
+                newQueue = existingQueue
+                newQueueIndex = existingIdx
+                newQueueMode = currentState.isQueueMode
+            } else {
+                // Item is NOT in the current queue — user tapped something new from the library.
+                // Reset all queue/playlist context so Play Next builds a fresh queue from scratch.
+                val allMedia = currentState.mediaList + currentState.extraMediaList
+                val idx = allMedia.indexOfFirst { it.id == resolvedItem.id }
+                newPlaylistId = null
+                newQueue = allMedia
+                newQueueIndex = if (idx >= 0) idx else 0
+                newQueueMode = false
+            }
         } else {
             // Fresh play with no prior queue — never auto-assign a playlist context.
             // Only playPlaylist() / continueInPlaylist() should set currentPlaylistId.

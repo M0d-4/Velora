@@ -114,37 +114,20 @@ fun LyricsOverlay(
                 }
                 val fontSize   = if (isActive) 18.sp else 15.sp
                 val fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal
+                val baseColor  = if (textColor == Color.Unspecified)
+                    MaterialTheme.colorScheme.onSurface else textColor
 
-                AnimatedContent(
-                    targetState = isActive,
-                    transitionSpec = {
-                        if (targetState) {
-                            when (slideDirection) {
-                                LyricsSlideDirection.UP ->
-                                    (slideInVertically(tween(350)) { it / 2 } + fadeIn(tween(300))) togetherWith
-                                    (slideOutVertically(tween(250)) { -it / 2 } + fadeOut(tween(200)))
-                                LyricsSlideDirection.LEFT_TO_RIGHT ->
-                                    // Line enters from left (positive = enters from right, negative = from left)
-                                    (slideInHorizontally(tween(350)) { -it / 3 } + fadeIn(tween(300))) togetherWith
-                                    (slideOutHorizontally(tween(250)) { it / 3 } + fadeOut(tween(200)))
-                            }
-                        } else {
-                            fadeIn(tween(200)) togetherWith fadeOut(tween(200))
-                        }
-                    },
-                    label = "lyric_$index"
-                ) {
-                    val baseColor = if (textColor == Color.Unspecified)
-                        MaterialTheme.colorScheme.onSurface else textColor
-                    Text(
-                        text = line.text,
-                        color = baseColor.copy(alpha = textAlpha),
-                        fontSize = fontSize,
-                        fontWeight = fontWeight,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+                // No per-item AnimatedContent — the LazyColumn scroll provides motion.
+                // slideDirection is intentionally unused here; the list scrolls vertically
+                // and the LEFT_TO_RIGHT direction is conveyed by the active-highlight only.
+                Text(
+                    text = line.text,
+                    color = baseColor.copy(alpha = textAlpha),
+                    fontSize = fontSize,
+                    fontWeight = fontWeight,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }

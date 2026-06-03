@@ -6,6 +6,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -14,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -108,31 +110,37 @@ fun VideoPlayerScreen(
 
         // Lyrics always visible regardless of controls — rendered outside AnimatedVisibility
         if (state.lyrics.isNotEmpty()) {
+            // Scrim colour for readability behind lyrics
+            val lyricScrim = Color.Black.copy(alpha = 0.45f)
             if (state.isLandscape) {
-                // Landscape: full-width, white text, sits above bottom controls (~96dp tall)
+                // Landscape: 120dp tall, shifted up 80dp above the bottom controls bar
                 LyricsOverlay(
                     lyrics = state.lyrics,
                     activeIndex = state.activeLyricIndex,
                     slideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
-                    textColor = androidx.compose.ui.graphics.Color.White,
+                    textColor = Color.White,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .heightIn(min = 80.dp, max = 160.dp)
-                        .padding(bottom = 96.dp, start = 20.dp, end = 20.dp)
+                        .height(120.dp)
+                        .offset(y = (-80).dp)
+                        .drawBehind { drawRect(lyricScrim) }
+                        .padding(horizontal = 20.dp)
                 )
             } else {
-                // Portrait: full-width, white text, sits above bottom controls (~176dp tall)
+                // Portrait: 160dp tall, shifted up 160dp above the bottom controls column
                 LyricsOverlay(
                     lyrics = state.lyrics,
                     activeIndex = state.activeLyricIndex,
                     slideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
-                    textColor = androidx.compose.ui.graphics.Color.White,
+                    textColor = Color.White,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .heightIn(min = 80.dp, max = 180.dp)
-                        .padding(bottom = 176.dp, start = 16.dp, end = 16.dp)
+                        .height(160.dp)
+                        .offset(y = (-160).dp)
+                        .drawBehind { drawRect(lyricScrim) }
+                        .padding(horizontal = 16.dp)
                 )
             }
         }
