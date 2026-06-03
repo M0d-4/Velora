@@ -1,6 +1,6 @@
 # Velora
 
-A clean, modern media player for Android built with Jetpack Compose and Media3/ExoPlayer. Plays audio and video from your local storage with a liquid-glass UI, synchronized lyrics, playlist management, and a fully automated CI/CD pipeline via GitHub Actions.
+A clean, modern media player for Android. Plays audio and video from your local storage with a liquid-glass UI, synchronized lyrics, playlist management.
 
 ---
 
