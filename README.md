@@ -7,9 +7,8 @@ A clean, modern media player for Android. Plays audio and video from your local 
 ## Features
 
 ### Playback
-- Audio and video playback powered by **ExoPlayer / Media3**
-- Background playback with a persistent **foreground notification** (Media Session)
-- Adjustable **playback speed** (0.25× – 2×)
+- Audio and video playback
+- Adjustable **playback speed** (0.5× – 2×)
 - Configurable **skip interval** (skip forward / back)
 - **Shuffle** mode and manual **queue** management
 - Lock-screen / wake-lock support — keeps playing with the screen off
@@ -34,7 +33,6 @@ A clean, modern media player for Android. Plays audio and video from your local 
 - **Liquid Glass** surface components — frosted-glass cards with blur and shimmer effects
 - **Material You** dynamic colour theming (toggleable via Settings)
 - Full **landscape / portrait** support with `fullSensor` orientation
-- Real-time **waveform visualiser** using the Android `Visualizer` API
 - Album art / video thumbnail extraction via Coil
 
 ### Settings
