@@ -346,15 +346,40 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleQueueMode() {
         val s = _state.value
         if (!s.isQueueMode) {
-            // If already in a named playlist context, keep that queue — don't replace with filteredList.
-            if (s.currentPlaylistId != null && s.queue.isNotEmpty()) {
-                val queue = if (s.isShuffle) s.queue.shuffled() else s.queue
-                val idx = queue.indexOfFirst { it.id == s.currentItem?.id }.coerceAtLeast(0)
-                _state.update { it.copy(isQueueMode = true, queue = queue, queueIndex = idx) }
-            } else {
-                val list = filteredList(); val shuffled = if (s.isShuffle) list.shuffled() else list
-                val idx = shuffled.indexOfFirst { it.id == s.currentItem?.id }.coerceAtLeast(0)
-                _state.update { it.copy(isQueueMode = true, queue = shuffled, queueIndex = idx) }
+            when {
+                // Already in a named playlist — keep that queue
+                s.currentPlaylistId != null && s.queue.isNotEmpty() -> {
+                    val queue = if (s.isShuffle) s.queue.shuffled() else s.queue
+                    val idx = queue.indexOfFirst { it.id == s.currentItem?.id }.coerceAtLeast(0)
+                    _state.update { it.copy(isQueueMode = true, queue = queue, queueIndex = idx) }
+                }
+                // No playlist context but current item belongs to exactly one playlist —
+                // lock into that playlist so Play Next stays within it
+                s.currentPlaylistId == null && s.currentItem != null -> {
+                    val allMedia = s.mediaList + s.extraMediaList
+                    val singlePlaylist = s.playlists
+                        .filter { !it.isFavourites && it.itemIds.contains(s.currentItem.id) }
+                        .let { if (it.size == 1) it.first() else null }
+                    if (singlePlaylist != null) {
+                        val items = singlePlaylist.itemIds
+                            .mapNotNull { id -> allMedia.firstOrNull { it.id == id } }
+                        val queue = if (s.isShuffle) items.shuffled() else items
+                        val idx = queue.indexOfFirst { it.id == s.currentItem.id }.coerceAtLeast(0)
+                        _state.update { it.copy(isQueueMode = true, queue = queue, queueIndex = idx,
+                            currentPlaylistId = singlePlaylist.id) }
+                    } else {
+                        // Item in multiple playlists or no playlist — use filtered library
+                        val list = filteredList()
+                        val shuffled = if (s.isShuffle) list.shuffled() else list
+                        val idx = shuffled.indexOfFirst { it.id == s.currentItem.id }.coerceAtLeast(0)
+                        _state.update { it.copy(isQueueMode = true, queue = shuffled, queueIndex = idx) }
+                    }
+                }
+                else -> {
+                    val list = filteredList(); val shuffled = if (s.isShuffle) list.shuffled() else list
+                    val idx = shuffled.indexOfFirst { it.id == s.currentItem?.id }.coerceAtLeast(0)
+                    _state.update { it.copy(isQueueMode = true, queue = shuffled, queueIndex = idx) }
+                }
             }
         } else _state.update { it.copy(isQueueMode = false) }
     }

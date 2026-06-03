@@ -123,7 +123,7 @@ private fun AudioPlayerPortrait(
 ) {
     val hasLyrics = state.lyrics.isNotEmpty()
     // Prev/Next only enabled when playing from a named playlist
-    val canSkip = state.queue.size > 1
+    val canSkip = state.isQueueMode && state.queue.size > 1
 
     var speedExpanded by remember { mutableStateOf(false) }
     var prevItemId by remember { mutableLongStateOf(item.id) }
@@ -315,7 +315,7 @@ private fun AudioPlayerLandscape(
     isFavourite: Boolean, onRotate: () -> Unit, modifier: Modifier = Modifier
 ) {
     val hasLyrics = state.lyrics.isNotEmpty()
-    val canSkip = state.queue.size > 1
+    val canSkip = state.isQueueMode && state.queue.size > 1
     var speedExpanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()

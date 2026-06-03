@@ -53,7 +53,7 @@ fun VideoPlayerScreen(
 ) {
     val item = state.currentItem ?: return
     val hasLyrics = state.lyrics.isNotEmpty()
-    val canSkip = state.queue.size > 1
+    val canSkip = state.isQueueMode && state.queue.size > 1
 
     var controlsVisible by remember { mutableStateOf(true) }
     var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -109,29 +109,30 @@ fun VideoPlayerScreen(
         // Lyrics always visible regardless of controls — rendered outside AnimatedVisibility
         if (state.lyrics.isNotEmpty()) {
             if (state.isLandscape) {
-                // Landscape: compact strip above the bottom controls area
+                // Landscape: full-width, white text, sits above bottom controls (~96dp tall)
                 LyricsOverlay(
                     lyrics = state.lyrics,
                     activeIndex = state.activeLyricIndex,
                     slideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth(0.75f)
-                        .heightIn(min = 40.dp, max = 110.dp)
-                        .padding(bottom = 76.dp)
-                )
-            } else {
-                // Portrait: sits above the bottom controls column
-                LyricsOverlay(
-                    lyrics = state.lyrics,
-                    activeIndex = state.activeLyricIndex,
-                    slideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
+                    textColor = androidx.compose.ui.graphics.Color.White,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .heightIn(min = 56.dp, max = 140.dp)
-                        .padding(bottom = 148.dp)
-                        .padding(horizontal = 16.dp)
+                        .heightIn(min = 80.dp, max = 160.dp)
+                        .padding(bottom = 96.dp, start = 20.dp, end = 20.dp)
+                )
+            } else {
+                // Portrait: full-width, white text, sits above bottom controls (~176dp tall)
+                LyricsOverlay(
+                    lyrics = state.lyrics,
+                    activeIndex = state.activeLyricIndex,
+                    slideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
+                    textColor = androidx.compose.ui.graphics.Color.White,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .heightIn(min = 80.dp, max = 180.dp)
+                        .padding(bottom = 176.dp, start = 16.dp, end = 16.dp)
                 )
             }
         }

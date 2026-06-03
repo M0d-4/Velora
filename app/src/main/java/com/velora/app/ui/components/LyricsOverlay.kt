@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -31,7 +32,8 @@ fun LyricsOverlay(
     activeIndex: Int,
     modifier: Modifier = Modifier,
     singleLine: Boolean = false,
-    slideDirection: LyricsSlideDirection = LyricsSlideDirection.LEFT_TO_RIGHT
+    slideDirection: LyricsSlideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
+    textColor: Color = Color.Unspecified   // pass Color.White for video overlays
 ) {
     if (lyrics.isEmpty()) return
 
@@ -54,9 +56,11 @@ fun LyricsOverlay(
             ) { idx ->
                 val line = lyrics.getOrNull(idx)
                 if (line != null) {
+                    val resolvedColor = if (textColor == Color.Unspecified)
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f) else textColor
                     Text(
                         text = line.text,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
+                        color = resolvedColor,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center,
@@ -130,9 +134,11 @@ fun LyricsOverlay(
                     },
                     label = "lyric_$index"
                 ) {
+                    val baseColor = if (textColor == Color.Unspecified)
+                        MaterialTheme.colorScheme.onSurface else textColor
                     Text(
                         text = line.text,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = textAlpha),
+                        color = baseColor.copy(alpha = textAlpha),
                         fontSize = fontSize,
                         fontWeight = fontWeight,
                         textAlign = TextAlign.Center,
