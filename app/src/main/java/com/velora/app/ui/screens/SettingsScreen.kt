@@ -32,6 +32,8 @@ private val SwitchGreen = Color(0xFF34C759)
 fun SettingsScreen(
     useMaterialYou: Boolean,
     onMaterialYouToggle: (Boolean) -> Unit,
+    usePixelUi: Boolean = false,
+    onPixelUiToggle: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val supportsM3 = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -65,6 +67,15 @@ fun SettingsScreen(
                         checked  = useMaterialYou && supportsM3,
                         enabled  = supportsM3,
                         onCheckedChange = { if (supportsM3) onMaterialYouToggle(it) }
+                    )
+                    SettingsDivider()
+                    DraggableToggleRow(
+                        icon     = Icons.Rounded.PhoneAndroid,
+                        title    = "Pixel UI",
+                        subtitle = "Clean flat Material style, disables Liquid Glass",
+                        checked  = usePixelUi,
+                        enabled  = true,
+                        onCheckedChange = onPixelUiToggle
                     )
                 }
             }

@@ -15,7 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -81,15 +80,6 @@ fun VideoPlayerScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
-            .pointerInput(controlsVisible, speedExpanded) {
-                detectTapGestures {
-                    when {
-                        speedExpanded -> { speedExpanded = false; interact() }
-                        controlsVisible -> controlsVisible = false
-                        else -> { controlsVisible = true; interact() }
-                    }
-                }
-            }
     ) {
         // Video surface — fills entire Box including behind system bars
         AndroidView(
@@ -108,38 +98,52 @@ fun VideoPlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
+        // Tap-to-toggle-controls layer — sits behind the actual controls
+        // so button clicks reach their handlers without being swallowed here
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(controlsVisible, speedExpanded) {
+                    detectTapGestures {
+                        when {
+                            speedExpanded -> { speedExpanded = false; interact() }
+                            controlsVisible -> controlsVisible = false
+                            else -> { controlsVisible = true; interact() }
+                        }
+                    }
+                }
+        )
+
         // Lyrics always visible regardless of controls — rendered outside AnimatedVisibility
         if (state.lyrics.isNotEmpty()) {
-            // Scrim colour for readability behind lyrics
-            val lyricScrim = Color.Black.copy(alpha = 0.45f)
             if (state.isLandscape) {
-                // Landscape: 120dp tall, shifted up 80dp above the bottom controls bar
+                // Landscape: single line, slides left-to-right, no background
                 LyricsOverlay(
                     lyrics = state.lyrics,
                     activeIndex = state.activeLyricIndex,
                     slideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
+                    singleLine = true,
                     textColor = Color.White,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .height(120.dp)
+                        .height(48.dp)
                         .offset(y = (-80).dp)
-                        .drawBehind { drawRect(lyricScrim) }
                         .padding(horizontal = 20.dp)
                 )
             } else {
-                // Portrait: 160dp tall, shifted up 160dp above the bottom controls column
+                // Portrait: single line, slides left-to-right, no background
                 LyricsOverlay(
                     lyrics = state.lyrics,
                     activeIndex = state.activeLyricIndex,
                     slideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
+                    singleLine = true,
                     textColor = Color.White,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .height(160.dp)
+                        .height(48.dp)
                         .offset(y = (-160).dp)
-                        .drawBehind { drawRect(lyricScrim) }
                         .padding(horizontal = 16.dp)
                 )
             }

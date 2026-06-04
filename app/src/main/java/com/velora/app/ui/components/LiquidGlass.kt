@@ -15,6 +15,9 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+/** When true, all LiquidGlass surfaces render as flat Material surfaces (Pixel UI mode). */
+val LocalUsePixelUi = compositionLocalOf { false }
+
 /**
  * Liquid Glass surface — frosted glass look with animated border glow.
  * No shimmer sweep (removed per user request).
@@ -28,6 +31,19 @@ fun LiquidGlassSurface(
     elevation: Dp = 0.dp,
     content: @Composable BoxScope.() -> Unit
 ) {
+    val usePixelUi = LocalUsePixelUi.current
+    if (usePixelUi) {
+        // Pixel UI: flat Material surface, no glass effect
+        val shape = RoundedCornerShape(cornerRadius)
+        Box(
+            modifier = modifier
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = (alpha + 0.1f).coerceAtMost(1f)), shape),
+            content = content
+        )
+        return
+    }
+
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     // Animate a slow border pulse glow only (no moving shimmer)

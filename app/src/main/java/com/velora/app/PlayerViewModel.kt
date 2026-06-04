@@ -276,7 +276,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             newPlaylistId = currentState.currentPlaylistId
             newQueue = existingQueue
             newQueueIndex = if (existingIdx >= 0) existingIdx else 0
-            newQueueMode = true
+            newQueueMode = currentState.isQueueMode
         } else if (currentState.queue.isNotEmpty()) {
             val existingQueue = currentState.queue
             val existingIdx = existingQueue.indexOfFirst { it.id == resolvedItem.id }
@@ -435,7 +435,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(pendingPlaylistChoice = containingPlaylists, queueIndex = nextIdx) }
             return
         }
-        _state.update { it.copy(queueIndex = nextIdx) }; playItem(nextItem)
+        // Preserve the existing playlist context when advancing
+        val existingPlaylistId = s.currentPlaylistId
+        _state.update { it.copy(queueIndex = nextIdx, currentPlaylistId = existingPlaylistId) }
+        playItem(nextItem)
     }
 
     // ── Favorites & Playlists ──────────────────────────────────────────────────

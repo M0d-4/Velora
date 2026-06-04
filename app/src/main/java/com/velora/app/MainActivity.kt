@@ -45,6 +45,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.SessionToken
 import com.velora.app.ui.components.LiquidGlassSurface
+import com.velora.app.ui.components.LocalUsePixelUi
 import com.velora.app.ui.components.liquidPressEffect
 import com.velora.app.ui.components.bouncePressEffect
 import com.velora.app.ui.screens.*
@@ -69,6 +70,7 @@ class MainActivity : ComponentActivity() {
             // Material You preference persisted via SharedPreferences
             val prefs = getSharedPreferences("velora_prefs", MODE_PRIVATE)
             var useMaterialYou by remember { mutableStateOf(prefs.getBoolean("material_you", true)) }
+            var usePixelUi by remember { mutableStateOf(prefs.getBoolean("pixel_ui", false)) }
             VeloraTheme(useMaterialYou = useMaterialYou) {
                 VeloraApp(
                     viewModel = viewModel,
@@ -76,6 +78,11 @@ class MainActivity : ComponentActivity() {
                     onMaterialYouToggle = { enabled ->
                         useMaterialYou = enabled
                         prefs.edit().putBoolean("material_you", enabled).apply()
+                    },
+                    usePixelUi = usePixelUi,
+                    onPixelUiToggle = { enabled ->
+                        usePixelUi = enabled
+                        prefs.edit().putBoolean("pixel_ui", enabled).apply()
                     }
                 )
             }
@@ -89,7 +96,9 @@ class MainActivity : ComponentActivity() {
 fun VeloraApp(
     viewModel: PlayerViewModel,
     useMaterialYou: Boolean,
-    onMaterialYouToggle: (Boolean) -> Unit
+    onMaterialYouToggle: (Boolean) -> Unit,
+    usePixelUi: Boolean = false,
+    onPixelUiToggle: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
@@ -203,6 +212,7 @@ fun VeloraApp(
         )
     }
 
+    CompositionLocalProvider(LocalUsePixelUi provides usePixelUi) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = Color.Transparent,
@@ -293,7 +303,9 @@ fun VeloraApp(
 
                     2 -> SettingsScreen(
                         useMaterialYou = useMaterialYou,
-                        onMaterialYouToggle = onMaterialYouToggle
+                        onMaterialYouToggle = onMaterialYouToggle,
+                        usePixelUi = usePixelUi,
+                        onPixelUiToggle = onPixelUiToggle
                     )
                 }
             }
@@ -361,6 +373,7 @@ fun VeloraApp(
             // (version is visible in Settings → About)
         }
     }
+    } // CompositionLocalProvider
 }
 
 // ── Bottom nav: 3 tabs ─────────────────────────────────────────────────────────
