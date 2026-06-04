@@ -39,8 +39,9 @@ fun SettingsScreen(
 ) {
     val supportsM3 = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
-    Box(modifier = modifier.fillMaxSize()) {
-        AnimatedBackground()
+    Box(modifier = modifier
+        .fillMaxSize()
+        .background(MaterialTheme.colorScheme.background)) {
 
         Column(
             modifier = Modifier

@@ -423,6 +423,38 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         // Only advance when Play Next is explicitly on
         if (!s.isQueueMode || s.queue.size < 2) return
+
+        // If no playlist context yet, check which playlists the current song belongs to.
+        // If it's in multiple playlists and we have no chosen context, ask the user first.
+        if (s.currentPlaylistId == null && s.currentItem != null) {
+            val containingPlaylists = s.playlists.filter { !it.isFavourites && it.itemIds.contains(s.currentItem.id) }
+            if (containingPlaylists.size > 1) {
+                _state.update { it.copy(pendingPlaylistChoice = containingPlaylists) }
+                return
+            } else if (containingPlaylists.size == 1) {
+                // Auto-lock into the single playlist context and rebuild queue from it
+                val pl = containingPlaylists.first()
+                val allMedia = s.mediaList + s.extraMediaList
+                val items = pl.itemIds.mapNotNull { id -> allMedia.firstOrNull { it.id == id } }
+                val queue = if (s.isShuffle) items.shuffled() else items
+                val idx = queue.indexOfFirst { it.id == s.currentItem.id }.coerceAtLeast(0)
+                _state.update { it.copy(queue = queue, queueIndex = idx, currentPlaylistId = pl.id) }
+                // Re-read updated state
+                val updated = _state.value
+                val nextIdx = if (s.isShuffle) {
+                    val candidates = updated.queue.indices.filter { it != updated.queueIndex }
+                    if (candidates.isEmpty()) updated.queueIndex else candidates.random()
+                } else {
+                    if (forward) (updated.queueIndex + 1) % updated.queue.size
+                    else if (updated.queueIndex > 0) updated.queueIndex - 1 else updated.queue.size - 1
+                }
+                val nextItem = updated.queue.getOrNull(nextIdx) ?: return
+                _state.update { it.copy(queueIndex = nextIdx) }
+                playItem(nextItem)
+                return
+            }
+        }
+
         // If shuffle, pick a different random track within same playlist
         val nextIdx = if (s.isShuffle) {
             val candidates = s.queue.indices.filter { it != s.queueIndex }
@@ -432,13 +464,6 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             else if (s.queueIndex > 0) s.queueIndex - 1 else s.queue.size - 1
         }
         val nextItem = s.queue.getOrNull(nextIdx) ?: return
-        // Check if next item belongs to multiple playlists: if so, prompt
-        val containingPlaylists = s.playlists.filter { !it.isFavourites && it.itemIds.contains(nextItem.id) }
-        if (containingPlaylists.size > 1) {
-            _state.update { it.copy(pendingPlaylistChoice = containingPlaylists, queueIndex = nextIdx) }
-            return
-        }
-        // Preserve the existing playlist context when advancing
         val existingPlaylistId = s.currentPlaylistId
         _state.update { it.copy(queueIndex = nextIdx, currentPlaylistId = existingPlaylistId) }
         playItem(nextItem)

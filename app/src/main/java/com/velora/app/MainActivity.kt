@@ -251,7 +251,7 @@ fun VeloraApp(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .navigationBarsPadding()
-                                .padding(bottom = 60.dp, start = 12.dp, end = 12.dp)
+                                .padding(bottom = 132.dp, start = 12.dp, end = 12.dp)
                         ) {
                             MiniPlayer(
                                 state = state,
@@ -321,9 +321,9 @@ fun VeloraApp(
 
                 // ── Settings overlay ──────────────────────────────────────────
                 if (showSettings) {
-                    Box(Modifier.fillMaxSize().background(Color.Black.copy(0.45f))
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showSettings = false })
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { /* consume */ })
+                    Box(Modifier.fillMaxSize()) {
                         SettingsScreen(
                             useMaterialYou = useMaterialYou,
                             onMaterialYouToggle = onMaterialYouToggle,

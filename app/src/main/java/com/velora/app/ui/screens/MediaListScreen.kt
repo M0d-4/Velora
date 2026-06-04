@@ -137,7 +137,7 @@ fun MediaListScreen(
             }
         }
 
-        // ── Bottom bar: Library title + filter chips + settings button ────────
+        // ── Bottom bar: filter chips + settings | Library title + action buttons ──
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -149,7 +149,24 @@ fun MediaListScreen(
                 .padding(bottom = 8.dp, top = 12.dp, start = 16.dp, end = 16.dp)
         ) {
             Column {
-                // Title row + action buttons
+                // Top row: filter chips + settings button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterTab.values().forEach { tab -> FilterChip(tab, state.filterTab == tab) { onFilterChange(tab) } }
+                    }
+                    // Settings button beside filter chips
+                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                        IconButton(onClick = onSettingsClick) {
+                            Icon(Icons.Rounded.Settings, "Settings", tint = MaterialTheme.colorScheme.onSurface.copy(0.7f), modifier = Modifier.size(22.dp))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                // Bottom row: Library title + import zip + create playlist buttons
                 Row(modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween) {
@@ -173,18 +190,7 @@ fun MediaListScreen(
                                 Icon(Icons.Rounded.FolderZip, "Import ZIP", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                             }
                         }
-                        // Settings button — bottom right, beside library
-                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
-                            IconButton(onClick = onSettingsClick) {
-                                Icon(Icons.Rounded.Settings, "Settings", tint = MaterialTheme.colorScheme.onSurface.copy(0.7f), modifier = Modifier.size(22.dp))
-                            }
-                        }
                     }
-                }
-                Spacer(Modifier.height(8.dp))
-                // Filter chips row
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterTab.values().forEach { tab -> FilterChip(tab, state.filterTab == tab) { onFilterChange(tab) } }
                 }
             }
         }

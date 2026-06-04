@@ -18,12 +18,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.request.SuccessResult
+import coil.ImageLoader
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import androidx.palette.graphics.Palette
 import com.velora.app.PlayerState
 import com.velora.app.model.MediaItem
 import com.velora.app.ui.components.*
@@ -72,32 +79,94 @@ fun AudioPlayerScreen(
     }
 }
 
+// ── Cover-art palette extraction ──────────────────────────────────────────────
 @Composable
-internal fun AnimatedBackground() {
+fun rememberCoverArtColors(item: MediaItem): Pair<Color, Color> {
+    val context = LocalContext.current
+    var dominantColor by remember(item.id) { mutableStateOf<Color?>(null) }
+    var secondaryColor by remember(item.id) { mutableStateOf<Color?>(null) }
+
+    LaunchedEffect(item.id) {
+        val artUri = item.artUri ?: run {
+            dominantColor = null; secondaryColor = null; return@LaunchedEffect
+        }
+        try {
+            val loader = ImageLoader(context)
+            val req = ImageRequest.Builder(context).data(artUri).allowHardware(false).build()
+            val result = loader.execute(req)
+            val bmp = (result as? SuccessResult)?.drawable?.let { (it as? BitmapDrawable)?.bitmap }
+            if (bmp != null) {
+                val palette = Palette.Builder(bmp).maximumColorCount(8).generate()
+                dominantColor  = palette.dominantSwatch?.rgb?.let { Color(it) }
+                secondaryColor = (palette.vibrantSwatch ?: palette.mutedSwatch)?.rgb?.let { Color(it) }
+            }
+        } catch (_: Exception) {}
+    }
+
+    val fallbackPrimary   = MaterialTheme.colorScheme.primary
+    val fallbackSecondary = MaterialTheme.colorScheme.secondary
+    val primary   by animateColorAsState(dominantColor ?: fallbackPrimary,  tween(800), label = "dom")
+    val secondary by animateColorAsState(secondaryColor ?: fallbackSecondary, tween(900), label = "sec")
+    return primary to secondary
+}
+
+@Composable
+internal fun AnimatedBackground(
+    dominantColor: Color = MaterialTheme.colorScheme.primary,
+    secondaryColor: Color = MaterialTheme.colorScheme.secondary
+) {
     val inf = rememberInfiniteTransition(label = "bg")
-    val o1x by inf.animateFloat(150f, 750f, infiniteRepeatable(tween(9000, easing = FastOutSlowInEasing), RepeatMode.Reverse), "o1x")
-    val o1y by inf.animateFloat(100f, 550f, infiniteRepeatable(tween(7500, easing = LinearEasing), RepeatMode.Reverse), "o1y")
-    val o2x by inf.animateFloat(800f, 300f, infiniteRepeatable(tween(11000, easing = FastOutSlowInEasing), RepeatMode.Reverse), "o2x")
-    val o2y by inf.animateFloat(700f, 200f, infiniteRepeatable(tween(8200, easing = LinearEasing), RepeatMode.Reverse), "o2y")
-    val primary   = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
-    val secondary = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
+    val o1x by inf.animateFloat(
+        initialValue = 150f, targetValue = 750f,
+        animationSpec = infiniteRepeatable(tween(9000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "o1x"
+    )
+    val o1y by inf.animateFloat(
+        initialValue = 100f, targetValue = 550f,
+        animationSpec = infiniteRepeatable(tween(7500, easing = LinearEasing), RepeatMode.Reverse),
+        label = "o1y"
+    )
+    val o2x by inf.animateFloat(
+        initialValue = 800f, targetValue = 300f,
+        animationSpec = infiniteRepeatable(tween(11000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "o2x"
+    )
+    val o2y by inf.animateFloat(
+        initialValue = 700f, targetValue = 200f,
+        animationSpec = infiniteRepeatable(tween(8200, easing = LinearEasing), RepeatMode.Reverse),
+        label = "o2y"
+    )
+    val primary   = dominantColor.copy(alpha = 0.30f)
+    val secondary = secondaryColor.copy(alpha = 0.20f)
     Box(Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(primary, Color.Transparent),
-            center = androidx.compose.ui.geometry.Offset(o1x, o1y), radius = 600f)))
-        Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(secondary, Color.Transparent),
-            center = androidx.compose.ui.geometry.Offset(o2x, o2y), radius = 500f)))
+        Box(Modifier.fillMaxSize().background(Brush.radialGradient(
+            listOf(primary, Color.Transparent),
+            center = androidx.compose.ui.geometry.Offset(o1x, o1y), radius = 650f)))
+        Box(Modifier.fillMaxSize().background(Brush.radialGradient(
+            listOf(secondary, Color.Transparent),
+            center = androidx.compose.ui.geometry.Offset(o2x, o2y), radius = 520f)))
     }
 }
 
 @Composable
 internal fun AnimatedAlbumArt(item: MediaItem, isPlaying: Boolean, sizeDp: Int = 220) {
     val inf = rememberInfiniteTransition(label = "art")
-    val floatY by inf.animateFloat(0f, if (isPlaying) -8f else 0f,
-        infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse), "float")
-    val pulse by inf.animateFloat(1f, if (isPlaying) 1.03f else 1f,
-        infiniteRepeatable(tween(800, easing = LinearEasing), RepeatMode.Reverse), "pulse")
+    val floatY by inf.animateFloat(
+        initialValue = 0f,
+        targetValue = if (isPlaying) -8f else 0f,
+        animationSpec = infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "float"
+    )
+    val pulse by inf.animateFloat(
+        initialValue = 1f,
+        targetValue = if (isPlaying) 1.03f else 1f,
+        animationSpec = infiniteRepeatable(tween(800, easing = LinearEasing), RepeatMode.Reverse),
+        label = "pulse"
+    )
     LiquidGlassSurface(cornerRadius = 28.dp, alpha = 0.2f,
-        modifier = Modifier.size(sizeDp.dp).graphicsLayer { translationY = floatY; scaleX = pulse; scaleY = pulse }) {
+        modifier = Modifier
+            .size(sizeDp.dp)
+            .graphicsLayer { translationY = floatY; scaleX = pulse; scaleY = pulse }) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             val artUri = item.artUri
             if (artUri != null) {
@@ -130,9 +199,11 @@ private fun AudioPlayerPortrait(
     var enterFromRight by remember { mutableStateOf(true) }
     if (prevItemId != item.id) { enterFromRight = item.id > prevItemId; prevItemId = item.id }
 
+    val (dominantColor, secondaryColor) = rememberCoverArtColors(item)
+
     Box(modifier = modifier.fillMaxSize()
         .pointerInput(Unit) { detectTapGestures { if (speedExpanded) speedExpanded = false } }) {
-        AnimatedBackground()
+        AnimatedBackground(dominantColor = dominantColor, secondaryColor = secondaryColor)
         Column(
             modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
                 .padding(horizontal = 24.dp),
@@ -140,7 +211,7 @@ private fun AudioPlayerPortrait(
         ) {
             Spacer(Modifier.height(8.dp))
 
-            // ── Back button + Speed + rotate ──────────────────────────────
+            // ── Back button + rotate ──────────────────────────────────────
             Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
@@ -150,7 +221,6 @@ private fun AudioPlayerPortrait(
                             tint = MaterialTheme.colorScheme.onSurface.copy(0.8f))
                     }
                 }
-                PlaybackSpeedControl(currentSpeed = state.playbackSpeed, onSpeedChange = onSpeedChange, expanded = speedExpanded, onExpandedChange = { speedExpanded = it })
                 AnimatedVisibility(!speedExpanded,
                     enter = fadeIn(tween(200)) + scaleIn(initialScale = 0.8f),
                     exit  = fadeOut(tween(150)) + scaleOut(targetScale = 0.8f)) {
@@ -282,7 +352,6 @@ private fun AudioPlayerPortrait(
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                // Single SkipAndHeartPill
                 SkipAndHeartPill(
                     skipSeconds = state.skipSeconds,
                     isFavourite = isFavourite,
@@ -304,6 +373,19 @@ private fun AudioPlayerPortrait(
                     modifier       = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
                 )
             }
+            Spacer(Modifier.height(6.dp))
+
+            // ── Playback speed — below the time bar ──────────────────────
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically) {
+                PlaybackSpeedControl(
+                    currentSpeed = state.playbackSpeed,
+                    onSpeedChange = onSpeedChange,
+                    expanded = speedExpanded,
+                    onExpandedChange = { speedExpanded = it }
+                )
+            }
             Spacer(Modifier.height(8.dp))
         }
     }
@@ -323,15 +405,15 @@ private fun AudioPlayerLandscape(
     val hasLyrics = state.lyrics.isNotEmpty()
     val canSkip = state.isQueueMode && state.queue.size > 1
     var speedExpanded by remember { mutableStateOf(false) }
+    val (dominantColor, secondaryColor) = rememberCoverArtColors(item)
 
     Box(modifier = modifier.fillMaxSize()
         .pointerInput(Unit) { detectTapGestures { if (speedExpanded) speedExpanded = false } }) {
-        AnimatedBackground()
+        AnimatedBackground(dominantColor = dominantColor, secondaryColor = secondaryColor)
         Row(modifier = Modifier.fillMaxSize().systemBarsPadding()
             .padding(horizontal = 20.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp)) {
 
-            // Left: art + title + artist — fills full height, no lyrics here
             Column(
                 modifier = Modifier.weight(0.44f).fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -349,11 +431,9 @@ private fun AudioPlayerLandscape(
                     textAlign = TextAlign.Center, maxLines = 1)
             }
 
-            // Right: all controls, with lyrics overlaid on the transport row
             Column(modifier = Modifier.weight(0.56f).fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally) {
 
-                // Top row: back + speed + rotate
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
@@ -363,12 +443,6 @@ private fun AudioPlayerLandscape(
                                 tint = MaterialTheme.colorScheme.onSurface.copy(0.8f))
                         }
                     }
-                    PlaybackSpeedControl(
-                        currentSpeed     = state.playbackSpeed,
-                        onSpeedChange    = onSpeedChange,
-                        expanded         = speedExpanded,
-                        onExpandedChange = { speedExpanded = it }
-                    )
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onRotate) {
                             Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(18.dp),
@@ -376,7 +450,6 @@ private fun AudioPlayerLandscape(
                         }
                     }
                 }
-                // Lyrics (multi-line, weighted) above transport row
                 if (hasLyrics) {
                     LyricsOverlay(
                         lyrics = state.lyrics,
@@ -389,7 +462,6 @@ private fun AudioPlayerLandscape(
                 }
                 Spacer(Modifier.height(8.dp))
 
-                // Prev | Play | Next
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()) {
@@ -415,7 +487,6 @@ private fun AudioPlayerLandscape(
                 }
                 Spacer(Modifier.height(8.dp))
 
-                // Secondary controls: shuffle | queue | import lyrics | skip-seconds | favourite
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -442,7 +513,6 @@ private fun AudioPlayerLandscape(
                         }
                     }
                     Spacer(Modifier.weight(1f))
-                    // Import lyrics pill
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.13f) {
                         Row(modifier = Modifier
                             .pointerInput(Unit) { detectTapGestures { onImportLyrics() } }
@@ -465,7 +535,6 @@ private fun AudioPlayerLandscape(
                             }
                         }
                     }
-                    // Skip seconds + heart pill
                     SkipAndHeartPill(
                         skipSeconds       = state.skipSeconds,
                         isFavourite       = isFavourite,
@@ -475,7 +544,6 @@ private fun AudioPlayerLandscape(
                 }
                 Spacer(Modifier.height(8.dp))
 
-                // Scrubber — fixed, never moves
                 LiquidGlassSurface(cornerRadius = 14.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
                     MediaScrubber(
                         positionMs     = state.positionMs, durationMs = state.durationMs,
@@ -483,6 +551,17 @@ private fun AudioPlayerLandscape(
                         onSkipBackward = onSkipBackward,
                         onSkipForward  = onSkipForward,
                         modifier       = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                // Speed control below scrubber in landscape too
+                Row(modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center) {
+                    PlaybackSpeedControl(
+                        currentSpeed = state.playbackSpeed,
+                        onSpeedChange = onSpeedChange,
+                        expanded = speedExpanded,
+                        onExpandedChange = { speedExpanded = it }
                     )
                 }
             }

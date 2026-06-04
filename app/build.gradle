@@ -105,6 +105,7 @@ dependencies {
     // Coil for thumbnails
     implementation 'io.coil-kt:coil-compose:2.5.0'
     implementation 'io.coil-kt:coil-video:2.5.0'
+    implementation 'androidx.palette:palette-ktx:1.0.0'
 }
 
 // Helper task so the workflow can read the version name
