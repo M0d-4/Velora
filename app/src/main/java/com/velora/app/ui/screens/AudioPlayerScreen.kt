@@ -46,6 +46,7 @@ fun AudioPlayerScreen(
     onPlayPrev: () -> Unit,
     isFavourite: Boolean,
     onRotate: () -> Unit,
+    onBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val item = state.currentItem ?: return
@@ -61,12 +62,12 @@ fun AudioPlayerScreen(
                 onSeek, onSkipSecondsChange, onImportLyrics, onRemoveLyrics,
                 onFavouriteToggle, onShuffleToggle,
                 onQueueToggle, onSpeedChange, onPlayNext, onPlayPrev,
-                isFavourite, onRotate, modifier)
+                isFavourite, onRotate, onBack, modifier)
         } else {
             AudioPlayerPortrait(state, item, onPlayPause, onSkipForward, onSkipBackward,
                 onSeek, onSkipSecondsChange, onImportLyrics, onRemoveLyrics,
                 onFavouriteToggle, onShuffleToggle, onQueueToggle, onSpeedChange,
-                onPlayNext, onPlayPrev, isFavourite, onRotate, modifier)
+                onPlayNext, onPlayPrev, isFavourite, onRotate, onBack, modifier)
         }
     }
 }
@@ -119,10 +120,9 @@ private fun AudioPlayerPortrait(
     onImportLyrics: () -> Unit, onRemoveLyrics: () -> Unit,
     onFavouriteToggle: () -> Unit, onShuffleToggle: () -> Unit, onQueueToggle: () -> Unit,
     onSpeedChange: (Float) -> Unit, onPlayNext: () -> Unit, onPlayPrev: () -> Unit,
-    isFavourite: Boolean, onRotate: () -> Unit, modifier: Modifier = Modifier
+    isFavourite: Boolean, onRotate: () -> Unit, onBack: () -> Unit = {}, modifier: Modifier = Modifier
 ) {
     val hasLyrics = state.lyrics.isNotEmpty()
-    // Prev/Next only enabled when playing from a named playlist
     val canSkip = state.isQueueMode && state.queue.size > 1
 
     var speedExpanded by remember { mutableStateOf(false) }
@@ -140,10 +140,16 @@ private fun AudioPlayerPortrait(
         ) {
             Spacer(Modifier.height(8.dp))
 
-            // ── Speed + rotate ────────────────────────────────────────────
+            // ── Back button + Speed + rotate ──────────────────────────────
             Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
+                LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(0.8f))
+                    }
+                }
                 PlaybackSpeedControl(currentSpeed = state.playbackSpeed, onSpeedChange = onSpeedChange, expanded = speedExpanded, onExpandedChange = { speedExpanded = it })
                 AnimatedVisibility(!speedExpanded,
                     enter = fadeIn(tween(200)) + scaleIn(initialScale = 0.8f),
@@ -312,7 +318,7 @@ private fun AudioPlayerLandscape(
     onImportLyrics: () -> Unit, onRemoveLyrics: () -> Unit,
     onFavouriteToggle: () -> Unit, onShuffleToggle: () -> Unit, onQueueToggle: () -> Unit,
     onSpeedChange: (Float) -> Unit, onPlayNext: () -> Unit, onPlayPrev: () -> Unit,
-    isFavourite: Boolean, onRotate: () -> Unit, modifier: Modifier = Modifier
+    isFavourite: Boolean, onRotate: () -> Unit, onBack: () -> Unit = {}, modifier: Modifier = Modifier
 ) {
     val hasLyrics = state.lyrics.isNotEmpty()
     val canSkip = state.isQueueMode && state.queue.size > 1
@@ -347,10 +353,16 @@ private fun AudioPlayerLandscape(
             Column(modifier = Modifier.weight(0.56f).fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally) {
 
-                // Top row: speed + rotate
+                // Top row: back + speed + rotate
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
+                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(0.8f))
+                        }
+                    }
                     PlaybackSpeedControl(
                         currentSpeed     = state.playbackSpeed,
                         onSpeedChange    = onSpeedChange,

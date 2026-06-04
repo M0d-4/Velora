@@ -356,17 +356,20 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleQueueMode() {
         val s = _state.value
         if (!s.isQueueMode) {
+            val allMedia = s.mediaList + s.extraMediaList
             when {
-                // Already in a named playlist — keep that queue
-                s.currentPlaylistId != null && s.queue.isNotEmpty() -> {
-                    val queue = if (s.isShuffle) s.queue.shuffled() else s.queue
+                // Already in a named playlist — always rebuild queue from that playlist (not library)
+                s.currentPlaylistId != null -> {
+                    val pl = s.playlists.firstOrNull { it.id == s.currentPlaylistId }
+                    val items = pl?.itemIds?.mapNotNull { id -> allMedia.firstOrNull { it.id == id } }
+                        ?: s.queue.ifEmpty { filteredList() }
+                    val queue = if (s.isShuffle) items.shuffled() else items
                     val idx = queue.indexOfFirst { it.id == s.currentItem?.id }.coerceAtLeast(0)
                     _state.update { it.copy(isQueueMode = true, queue = queue, queueIndex = idx) }
                 }
                 // No playlist context but current item belongs to exactly one playlist —
                 // lock into that playlist so Play Next stays within it
                 s.currentPlaylistId == null && s.currentItem != null -> {
-                    val allMedia = s.mediaList + s.extraMediaList
                     val singlePlaylist = s.playlists
                         .filter { !it.isFavourites && it.itemIds.contains(s.currentItem.id) }
                         .let { if (it.size == 1) it.first() else null }

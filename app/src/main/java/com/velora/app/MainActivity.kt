@@ -10,7 +10,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -19,8 +18,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -43,7 +40,6 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.session.SessionToken
 import com.velora.app.ui.components.LiquidGlassSurface
 import com.velora.app.ui.components.LocalUsePixelUi
 import com.velora.app.ui.components.liquidPressEffect
@@ -54,6 +50,9 @@ import com.velora.app.ui.theme.VeloraTheme
 import kotlinx.coroutines.launch
 
 const val APP_VERSION = "1.1.1"
+
+// Navigation destinations — no pager, no swipe
+enum class Screen { LIBRARY, PLAYER, SETTINGS }
 
 @UnstableApi
 class MainActivity : ComponentActivity() {
@@ -67,7 +66,6 @@ class MainActivity : ComponentActivity() {
                 viewModel.importZip(uri) else viewModel.playUri(uri, mime)
         }
         setContent {
-            // Material You preference persisted via SharedPreferences
             val prefs = getSharedPreferences("velora_prefs", MODE_PRIVATE)
             var useMaterialYou by remember { mutableStateOf(prefs.getBoolean("material_you", true)) }
             var usePixelUi by remember { mutableStateOf(prefs.getBoolean("pixel_ui", false)) }
@@ -90,7 +88,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @UnstableApi
 @Composable
 fun VeloraApp(
@@ -105,10 +102,10 @@ fun VeloraApp(
     val state by viewModel.state.collectAsState()
     val scope = rememberCoroutineScope()
 
-    // 3 tabs: Library (0), Now Playing (1), Settings (2)
-    val pagerState = rememberPagerState(pageCount = { 3 })
+    // Single screen state — no pager, no swiping
+    var currentScreen by remember { mutableStateOf(Screen.LIBRARY) }
+    var showSettings by remember { mutableStateOf(false) }
 
-    // Permissions
     val permissions = buildList {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             add(Manifest.permission.READ_MEDIA_AUDIO)
@@ -128,8 +125,6 @@ fun VeloraApp(
     ) { results -> hasPermission = results.values.any { it } }
     LaunchedEffect(Unit) { if (!hasPermission) permissionLauncher.launch(permissions) }
 
-    // ExoPlayer — obtained directly from PlayerService companion object.
-    // The service is started by the ViewModel; we poll until it is available.
     val exoPlayer by produceState<ExoPlayer?>(initialValue = null) {
         while (value == null) {
             value = com.velora.app.service.PlayerService.player
@@ -137,29 +132,21 @@ fun VeloraApp(
         }
     }
 
-    // ZIP import: show dialog to choose playlist option
     var pendingZipUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val zipPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent())
         { uri -> if (uri != null) pendingZipUri = uri }
     val lyricsPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent())
         { uri -> uri?.let { viewModel.importLyricsFile(it) } }
 
-    // Auto-jump to Now Playing when track starts
+    // Auto-jump to player when track starts (expand from bar)
     LaunchedEffect(state.currentItem) {
-        if (state.currentItem != null) scope.launch { pagerState.animateScrollToPage(1) }
+        if (state.currentItem != null) currentScreen = Screen.PLAYER
     }
 
-    val selectedTab = pagerState.currentPage
-    val isVideoPlayer = selectedTab == 1 && state.currentItem?.isVideo == true
-    val isAudioPlayer = selectedTab == 1 && state.currentItem?.isVideo == false
-    val isVideoFullscreen = isVideoPlayer && state.isLandscape
-    val isAudioLandscape = isAudioPlayer && state.isLandscape
-
-    // Video player hides bottom bar when controls are hidden
-    var videoHidesBottomBar by remember { mutableStateOf(true) }
-
-    // Audio player controls auto-hide state (shared so bottom nav can hide too)
-    var audioBottomBarVisible by remember { mutableStateOf(true) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(state.zipImportMessage) {
+        state.zipImportMessage?.let { snackbarHostState.showSnackbar(it); viewModel.clearZipMessage() }
+    }
 
     val onRotate: () -> Unit = {
         val landscape = !state.isLandscape
@@ -170,12 +157,6 @@ fun VeloraApp(
             ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
     }
 
-    val snackbarHostState = remember { SnackbarHostState() }
-    LaunchedEffect(state.zipImportMessage) {
-        state.zipImportMessage?.let { snackbarHostState.showSnackbar(it); viewModel.clearZipMessage() }
-    }
-
-    // ZIP import dialog — resolve the display name so it can be pre-filled
     pendingZipUri?.let { uri ->
         val zipDisplayName = remember(uri) {
             val cursor = context.contentResolver.query(uri, null, null, null, null)
@@ -202,7 +183,6 @@ fun VeloraApp(
         )
     }
 
-    // Playlist selector dialog — shown when next/prev item belongs to >1 playlist
     val pendingChoice = state.pendingPlaylistChoice
     if (pendingChoice != null) {
         PlaylistChoiceDialog(
@@ -212,307 +192,177 @@ fun VeloraApp(
         )
     }
 
+    val isVideoPlayer = currentScreen == Screen.PLAYER && state.currentItem?.isVideo == true
+    val isAudioPlayer = currentScreen == Screen.PLAYER && state.currentItem?.isVideo == false
+    val isVideoFullscreen = isVideoPlayer && state.isLandscape
+    val isAudioLandscape = isAudioPlayer && state.isLandscape
+
     CompositionLocalProvider(LocalUsePixelUi provides usePixelUi) {
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color.Transparent,
-        contentWindowInsets = WindowInsets(0)
-    ) { _ ->
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-        ) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize(),
-                userScrollEnabled = !isVideoFullscreen && !isAudioLandscape
-            ) { page ->
-                when (page) {
-                    0 -> if (hasPermission) {
-                        MediaListScreen(
-                            state = state,
-                            filteredItems = viewModel.filteredList(),
-                            onItemClick = {
-                                viewModel.playItem(it)
-                                scope.launch { pagerState.animateScrollToPage(1) }
-                            },
-                            onFilterChange = viewModel::setFilter,
-                            onImportZip = { zipPicker.launch("application/zip") },
-                            onCreatePlaylist = viewModel::createPlaylist,
-                            onPlayPlaylist = {
-                                viewModel.playPlaylist(it)
-                                scope.launch { pagerState.animateScrollToPage(1) }
-                            },
-                            onAddToFavourites = viewModel::toggleFavourite,
-                            isFavourite = viewModel::isFavourite,
-                            onMergePlaylists = { ids, name, keep -> viewModel.mergePlaylists(ids, name, keep) },
-                            onAddPlaylistToFavorites = viewModel::addPlaylistToFavorites,
-                            onDeletePlaylist = viewModel::deletePlaylist,
-                            onRenamePlaylist = viewModel::renamePlaylist,
-                            onAddToPlaylist = viewModel::addToPlaylist,
-                            onHideItem = viewModel::toggleHideItem,
-                            onRemoveImported = viewModel::removeImportedMedia,
-                            onMultiDeleteMedia = viewModel::multiDeleteImportedMedia,
-                            onMultiDeletePlaylists = viewModel::multiDeletePlaylists,
-                            nonFavPlaylists = state.playlists.filter { !it.isFavourites }
-                        )
-                    } else PermissionPrompt { permissionLauncher.launch(permissions) }
-
-                    1 -> when {
-                        state.currentItem == null -> NothingPlayingPlaceholder {
-                            scope.launch { pagerState.animateScrollToPage(0) }
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            containerColor = Color.Transparent,
+            contentWindowInsets = WindowInsets(0)
+        ) { _ ->
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+            ) {
+                // ── Main content ──────────────────────────────────────────────
+                when (currentScreen) {
+                    Screen.LIBRARY -> {
+                        if (hasPermission) {
+                            MediaListScreen(
+                                state = state,
+                                filteredItems = viewModel.filteredList(),
+                                onItemClick = {
+                                    viewModel.playItem(it)
+                                    currentScreen = Screen.PLAYER
+                                },
+                                onFilterChange = viewModel::setFilter,
+                                onImportZip = { zipPicker.launch("application/zip") },
+                                onCreatePlaylist = viewModel::createPlaylist,
+                                onPlayPlaylist = {
+                                    viewModel.playPlaylist(it)
+                                    currentScreen = Screen.PLAYER
+                                },
+                                onAddToFavourites = viewModel::toggleFavourite,
+                                isFavourite = viewModel::isFavourite,
+                                onMergePlaylists = { ids, name, keep -> viewModel.mergePlaylists(ids, name, keep) },
+                                onAddPlaylistToFavorites = viewModel::addPlaylistToFavorites,
+                                onDeletePlaylist = viewModel::deletePlaylist,
+                                onRenamePlaylist = viewModel::renamePlaylist,
+                                onAddToPlaylist = viewModel::addToPlaylist,
+                                onHideItem = viewModel::toggleHideItem,
+                                onRemoveImported = viewModel::removeImportedMedia,
+                                onMultiDeleteMedia = viewModel::multiDeleteImportedMedia,
+                                onMultiDeletePlaylists = viewModel::multiDeletePlaylists,
+                                nonFavPlaylists = state.playlists.filter { !it.isFavourites },
+                                onSettingsClick = { showSettings = true }
+                            )
+                        } else {
+                            PermissionPrompt { permissionLauncher.launch(permissions) }
                         }
-                        state.currentItem!!.isVideo -> VideoPlayerScreen(
-                            state = state, player = exoPlayer,
-                            onPlayPause = viewModel::togglePlayPause,
-                            onSkipForward = viewModel::seekForward,
-                            onSkipBackward = viewModel::seekBackward,
-                            onSeek = viewModel::seekTo,
-                            onSkipSecondsChange = viewModel::setSkipSeconds,
-                            onImportLyrics = { lyricsPicker.launch("*/*") },
-                            onRemoveLyrics = viewModel::removeLyrics,
-                            onFavouriteToggle = { state.currentItem?.let { viewModel.toggleFavourite(it) } },
-                            onShuffleToggle = viewModel::toggleShuffle,
-                            onQueueToggle = viewModel::toggleQueueMode,
-                            onSpeedChange = viewModel::setPlaybackSpeed,
-                            onPlayNext = viewModel::playNext,
-                            onPlayPrev = viewModel::playPrev,
-                            isFavourite = state.currentItem?.let { viewModel.isFavourite(it) } ?: false,
-                            onRotate = onRotate,
-                            onHideBottomBar = { videoHidesBottomBar = it }
-                        )
-                        else -> AudioPlayerScreen(
-                            state = state,
-                            onPlayPause = viewModel::togglePlayPause,
-                            onSkipForward = viewModel::seekForward,
-                            onSkipBackward = viewModel::seekBackward,
-                            onSeek = viewModel::seekTo,
-                            onSkipSecondsChange = viewModel::setSkipSeconds,
-                            onImportLyrics = { lyricsPicker.launch("*/*") },
-                            onRemoveLyrics = viewModel::removeLyrics,
-                            onFavouriteToggle = { state.currentItem?.let { viewModel.toggleFavourite(it) } },
-                            onShuffleToggle = viewModel::toggleShuffle,
-                            onQueueToggle = viewModel::toggleQueueMode,
-                            onSpeedChange = viewModel::setPlaybackSpeed,
-                            onPlayNext = viewModel::playNext,
-                            onPlayPrev = viewModel::playPrev,
-                            isFavourite = state.currentItem?.let { viewModel.isFavourite(it) } ?: false,
-                            onRotate = onRotate
-                        )
+
+                        // Mini player for audio — floats above the library filter bar (bottom)
+                        AnimatedVisibility(
+                            visible = state.currentItem != null && state.currentItem?.isVideo == false,
+                            enter = slideInVertically { it } + fadeIn(),
+                            exit  = slideOutVertically { it } + fadeOut(),
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .navigationBarsPadding()
+                                .padding(bottom = 60.dp, start = 12.dp, end = 12.dp)
+                        ) {
+                            MiniPlayer(
+                                state = state,
+                                onPlayPause = viewModel::togglePlayPause,
+                                onClick = { currentScreen = Screen.PLAYER }
+                            )
+                        }
                     }
 
-                    2 -> SettingsScreen(
-                        useMaterialYou = useMaterialYou,
-                        onMaterialYouToggle = onMaterialYouToggle,
-                        usePixelUi = usePixelUi,
-                        onPixelUiToggle = onPixelUiToggle
-                    )
-                }
-            }
+                    Screen.PLAYER -> {
+                        when {
+                            state.currentItem == null -> {
+                                NothingPlayingPlaceholder { currentScreen = Screen.LIBRARY }
+                            }
+                            state.currentItem!!.isVideo -> VideoPlayerScreen(
+                                state = state, player = exoPlayer,
+                                onPlayPause = viewModel::togglePlayPause,
+                                onSkipForward = viewModel::seekForward,
+                                onSkipBackward = viewModel::seekBackward,
+                                onSeek = viewModel::seekTo,
+                                onSkipSecondsChange = viewModel::setSkipSeconds,
+                                onImportLyrics = { lyricsPicker.launch("*/*") },
+                                onRemoveLyrics = viewModel::removeLyrics,
+                                onFavouriteToggle = { state.currentItem?.let { viewModel.toggleFavourite(it) } },
+                                onShuffleToggle = viewModel::toggleShuffle,
+                                onQueueToggle = viewModel::toggleQueueMode,
+                                onSpeedChange = viewModel::setPlaybackSpeed,
+                                onPlayNext = viewModel::playNext,
+                                onPlayPrev = viewModel::playPrev,
+                                isFavourite = state.currentItem?.let { viewModel.isFavourite(it) } ?: false,
+                                onRotate = onRotate,
+                                onHideBottomBar = {},
+                                onBack = { currentScreen = Screen.LIBRARY }
+                            )
+                            else -> AudioPlayerScreen(
+                                state = state,
+                                onPlayPause = viewModel::togglePlayPause,
+                                onSkipForward = viewModel::seekForward,
+                                onSkipBackward = viewModel::seekBackward,
+                                onSeek = viewModel::seekTo,
+                                onSkipSecondsChange = viewModel::setSkipSeconds,
+                                onImportLyrics = { lyricsPicker.launch("*/*") },
+                                onRemoveLyrics = viewModel::removeLyrics,
+                                onFavouriteToggle = { state.currentItem?.let { viewModel.toggleFavourite(it) } },
+                                onShuffleToggle = viewModel::toggleShuffle,
+                                onQueueToggle = viewModel::toggleQueueMode,
+                                onSpeedChange = viewModel::setPlaybackSpeed,
+                                onPlayNext = viewModel::playNext,
+                                onPlayPrev = viewModel::playPrev,
+                                isFavourite = state.currentItem?.let { viewModel.isFavourite(it) } ?: false,
+                                onRotate = onRotate,
+                                onBack = { currentScreen = Screen.LIBRARY }
+                            )
+                        }
+                    }
 
-            // Mini player — sits just above the bottom nav with correct gap
-            AnimatedVisibility(
-                visible = selectedTab == 0 && state.currentItem != null,
-                enter = slideInVertically { it } + fadeIn(),
-                exit  = slideOutVertically { it } + fadeOut(),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(bottom = 54.dp, start = 12.dp, end = 12.dp)
-            ) {
-                MiniPlayer(state = state, onPlayPause = viewModel::togglePlayPause,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(1) } })
-            }
-
-            // Bottom nav — hidden for video player (always), audio landscape, video fullscreen
-            // Show bottom nav everywhere except true fullscreen / landscape audio
-            // Hide bottom nav when video page is visible at all (during swipe or settled)
-            val videoPageOffset = kotlin.math.abs(pagerState.currentPageOffsetFraction)
-            val nearVideoPage = (pagerState.currentPage == 1 && state.currentItem?.isVideo == true) ||
-                (pagerState.targetPage == 1 && state.currentItem?.isVideo == true && videoPageOffset > 0.1f)
-            val showBottomNav = !isVideoFullscreen && !isAudioLandscape && !nearVideoPage
-            AnimatedVisibility(
-                visible = showBottomNav,
-                enter = slideInVertically { it } + fadeIn(),
-                exit  = slideOutVertically { it } + fadeOut(),
-                modifier = Modifier.align(Alignment.BottomCenter)
-            ) {
-                LiquidBottomNav(
-                    selectedTab = selectedTab,
-                    onTabSelected = { scope.launch { pagerState.animateScrollToPage(it) } },
-                    hasNowPlaying = state.currentItem != null,
-                    isVideoPlayer = isVideoPlayer
-                )
-            }
-
-            // Favorites toast
-            AnimatedVisibility(
-                visible = state.showFavouriteToast,
-                enter = slideInVertically(spring(stiffness = Spring.StiffnessMediumLow)) { it } + fadeIn(tween(200)),
-                exit  = slideOutVertically(tween(200)) { it } + fadeOut(tween(150)),
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 104.dp)
-            ) {
-                LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.32f) {
-                    Row(modifier = Modifier.padding(horizontal = 22.dp, vertical = 13.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        val inf = rememberInfiniteTransition(label = "th")
-                        val heartScale by inf.animateFloat(1f, 1.22f,
-                            infiniteRepeatable(tween(500), RepeatMode.Reverse), "ths")
-                        Icon(Icons.Rounded.Favorite, null,
-                            modifier = Modifier.size(16.dp)
-                                .graphicsLayer { scaleX = heartScale; scaleY = heartScale },
-                            tint = Color(0xFFFF3B6B))
-                        Text("Added to Favorites", fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+                    Screen.SETTINGS -> {
+                        SettingsScreen(
+                            useMaterialYou = useMaterialYou,
+                            onMaterialYouToggle = onMaterialYouToggle,
+                            usePixelUi = usePixelUi,
+                            onPixelUiToggle = onPixelUiToggle,
+                            onBack = { showSettings = false }
+                        )
                     }
                 }
-            }
 
-            // Version text — hidden from bottom bar per user request
-            // (version is visible in Settings → About)
-        }
-    }
-    } // CompositionLocalProvider
-}
-
-// ── Bottom nav: 3 tabs ─────────────────────────────────────────────────────────
-
-/**
- * Compact floating pill nav bar — replaces the full-width tab bar.
- * Three icon buttons in a small frosted pill that floats above content.
- * Visible in all screens including video player.
- */
-@Composable
-private fun LiquidBottomNav(
-    selectedTab: Int,
-    onTabSelected: (Int) -> Unit,
-    hasNowPlaying: Boolean,
-    isVideoPlayer: Boolean = false
-) {
-    // Wrap both gradient and pill in a column that pads for system nav
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Faint gradient behind pill
-        Box(
-            modifier = Modifier.fillMaxWidth().height(16.dp)
-                .background(Brush.verticalGradient(
-                    listOf(Color.Transparent,
-                        if (isVideoPlayer) Color.Black.copy(0.55f)
-                        else MaterialTheme.colorScheme.background.copy(0.92f))
-                ))
-        )
-        // The pill + system nav insets
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    if (isVideoPlayer) Color.Black.copy(0.45f)
-                    else MaterialTheme.colorScheme.background.copy(0.92f)
-                )
-                .navigationBarsPadding()
-                .padding(bottom = 6.dp),
-            contentAlignment = Alignment.Center
-        ) {
-        LiquidGlassSurface(
-            cornerRadius = 999.dp,
-            alpha = if (isVideoPlayer) 0.30f else 0.22f,
-            modifier = Modifier.wrapContentWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                PillNavItem(
-                    icon = Icons.Rounded.LibraryMusic,
-                    label = "Library",
-                    selected = selectedTab == 0,
-                    isVideoOverlay = isVideoPlayer,
-                    onClick = { onTabSelected(0) }
-                )
-                PillNavItem(
-                    icon = if (hasNowPlaying) Icons.Rounded.MusicVideo else Icons.Rounded.PlayCircle,
-                    label = "Playing",
-                    selected = selectedTab == 1,
-                    badge = hasNowPlaying && selectedTab != 1,
-                    isVideoOverlay = isVideoPlayer,
-                    onClick = { onTabSelected(1) }
-                )
-                PillNavItem(
-                    icon = Icons.Rounded.Settings,
-                    label = "Settings",
-                    selected = selectedTab == 2,
-                    isVideoOverlay = isVideoPlayer,
-                    onClick = { onTabSelected(2) }
-                )
-            }
-        }
-        } // Box
-    } // Column
-}
-
-@Composable
-private fun PillNavItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    selected: Boolean,
-    badge: Boolean = false,
-    isVideoOverlay: Boolean = false,
-    onClick: () -> Unit
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val bgAlpha by animateFloatAsState(
-        if (selected) if (isVideoOverlay) 0.28f else 0.22f else 0f,
-        spring(stiffness = Spring.StiffnessMediumLow), label = "pillBg"
-    )
-    val activeColor = if (isVideoOverlay) Color.White else MaterialTheme.colorScheme.primary
-    val inactiveColor = if (isVideoOverlay) Color.White.copy(0.45f) else MaterialTheme.colorScheme.onSurface.copy(0.45f)
-    val iconColor = if (selected) activeColor else inactiveColor
-
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(activeColor.copy(alpha = bgAlpha), RoundedCornerShape(999.dp))
-            .bouncePressEffect(pressed)
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-            .padding(horizontal = if (selected) 14.dp else 10.dp, vertical = 7.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            Box {
-                Icon(icon, label, tint = iconColor, modifier = Modifier.size(18.dp))
-                if (badge) {
-                    Box(
-                        Modifier.size(5.dp)
-                            .background(if (isVideoOverlay) Color.White else MaterialTheme.colorScheme.primary, RoundedCornerShape(999.dp))
-                            .align(Alignment.TopEnd)
-                    )
+                // ── Settings overlay ──────────────────────────────────────────
+                if (showSettings) {
+                    Box(Modifier.fillMaxSize().background(Color.Black.copy(0.45f))
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showSettings = false })
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        SettingsScreen(
+                            useMaterialYou = useMaterialYou,
+                            onMaterialYouToggle = onMaterialYouToggle,
+                            usePixelUi = usePixelUi,
+                            onPixelUiToggle = onPixelUiToggle,
+                            onBack = { showSettings = false }
+                        )
+                    }
                 }
-            }
-            AnimatedVisibility(
-                visible = selected,
-                enter = fadeIn(tween(180)) + expandHorizontally(tween(180)),
-                exit  = fadeOut(tween(130)) + shrinkHorizontally(tween(130))
-            ) {
-                Text(
-                    label,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = activeColor
-                )
+
+                // ── Favorites toast ───────────────────────────────────────────
+                AnimatedVisibility(
+                    visible = state.showFavouriteToast,
+                    enter = slideInVertically(spring(stiffness = Spring.StiffnessMediumLow)) { it } + fadeIn(tween(200)),
+                    exit  = slideOutVertically(tween(200)) { it } + fadeOut(tween(150)),
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp)
+                ) {
+                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.32f) {
+                        Row(modifier = Modifier.padding(horizontal = 22.dp, vertical = 13.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            val inf = rememberInfiniteTransition(label = "th")
+                            val heartScale by inf.animateFloat(1f, 1.22f,
+                                infiniteRepeatable(tween(500), RepeatMode.Reverse), "ths")
+                            Icon(Icons.Rounded.Favorite, null,
+                                modifier = Modifier.size(16.dp)
+                                    .graphicsLayer { scaleX = heartScale; scaleY = heartScale },
+                                tint = Color(0xFFFF3B6B))
+                            Text("Added to Favorites", fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
             }
         }
     }
 }
 
-// ── Mini player ────────────────────────────────────────────────────────────────
+// ── Mini player (audio only) ───────────────────────────────────────────────────
 
 @Composable
 private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClick: () -> Unit) {
@@ -526,7 +376,6 @@ private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClick: () 
         Row(modifier = Modifier.fillMaxWidth().padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            // Thumbnail
             Box(modifier = Modifier.size(44.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(MaterialTheme.colorScheme.primaryContainer.copy(0.4f)),
@@ -537,12 +386,10 @@ private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClick: () 
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize())
                 } else {
-                    Icon(if (item.isVideo) Icons.Rounded.Videocam else Icons.Rounded.MusicNote,
-                        null, modifier = Modifier.size(20.dp),
+                    Icon(Icons.Rounded.MusicNote, null, modifier = Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.primary.copy(0.7f))
                 }
             }
-            // Title + artist (2 lines for title)
             Column(Modifier.weight(1f).padding(end = 8.dp)) {
                 Text(item.title, style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold, maxLines = 2,
@@ -554,7 +401,6 @@ private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClick: () 
                         overflow = TextOverflow.Ellipsis)
                 }
             }
-            // Progress + play button
             val progress = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f
             LinearProgressIndicator(progress = { progress }, modifier = Modifier.width(44.dp).height(3.dp),
                 color = MaterialTheme.colorScheme.primary,
@@ -571,7 +417,7 @@ private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClick: () 
     }
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun PermissionPrompt(onRequest: () -> Unit) {
@@ -601,7 +447,6 @@ private fun NothingPlayingPlaceholder(onBrowse: () -> Unit) {
         }
     }
 }
-
 
 @Composable
 private fun PlaylistChoiceDialog(
@@ -675,7 +520,6 @@ private fun ZipImportDialog(
                     color = MaterialTheme.colorScheme.onSurface.copy(0.7f))
                 Spacer(Modifier.height(4.dp))
 
-                // Create new playlist
                 if (!showNameField) {
                     FilledTonalButton(onClick = { showNameField = true }, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Rounded.PlaylistAdd, null, modifier = Modifier.size(16.dp))
@@ -723,7 +567,6 @@ private fun ZipImportDialog(
                     }
                 }
 
-                // Add to existing
                 if (playlists.isNotEmpty() && !showNameField) {
                     Text("Or add to existing:", style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(0.5f),
@@ -732,12 +575,11 @@ private fun ZipImportDialog(
                         OutlinedButton(onClick = { onAddToExisting(pl.id) }, modifier = Modifier.fillMaxWidth()) {
                             Icon(Icons.Rounded.PlaylistPlay, null, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(pl.name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            Text(pl.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
 
-                // No playlist
                 if (!showNameField) {
                     TextButton(onClick = onNoPlaylist, modifier = Modifier.fillMaxWidth()) {
                         Text("Import without playlist", color = MaterialTheme.colorScheme.onSurface.copy(0.6f))

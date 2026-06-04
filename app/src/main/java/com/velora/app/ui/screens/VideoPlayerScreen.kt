@@ -50,6 +50,7 @@ fun VideoPlayerScreen(
     isFavourite: Boolean,
     onRotate: () -> Unit,
     onHideBottomBar: (Boolean) -> Unit,
+    onBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val item = state.currentItem ?: return
@@ -194,7 +195,8 @@ fun VideoPlayerScreen(
                     onPlayNext = { onPlayNext(); interact() },
                     onPlayPrev = { onPlayPrev(); interact() },
                     isFavourite = isFavourite,
-                    onRotate = { onRotate(); interact() }
+                    onRotate = { onRotate(); interact() },
+                    onBack = onBack
                 )
             }
         }
@@ -223,7 +225,8 @@ private fun VideoControlsPortrait(
     onPlayNext: () -> Unit,
     onPlayPrev: () -> Unit,
     isFavourite: Boolean,
-    onRotate: () -> Unit
+    onRotate: () -> Unit,
+    onBack: () -> Unit = {}
 ) {
     Box(Modifier.fillMaxSize()) {
         // Top scrim
@@ -236,7 +239,7 @@ private fun VideoControlsPortrait(
             .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.92f))))
             .align(Alignment.BottomCenter))
 
-        // Title + rotate — respects status bar
+        // Title row with back + rotate
         Row(modifier = Modifier
             .align(Alignment.TopStart)
             .fillMaxWidth()
@@ -244,6 +247,12 @@ private fun VideoControlsPortrait(
             .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
+            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.22f) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(18.dp), tint = Color.White)
+                }
+            }
+            Spacer(Modifier.width(8.dp))
             Text(item.title, style = MaterialTheme.typography.titleMedium,
                 color = Color.White, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,

@@ -68,6 +68,7 @@ fun MediaListScreen(
     onMultiDeleteMedia: (Set<Long>, Boolean) -> Unit,
     onMultiDeletePlaylists: (Set<Long>, Boolean) -> Unit,
     nonFavPlaylists: List<Playlist>,
+    onSettingsClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showNewPlaylistDialog by remember { mutableStateOf(false) }
@@ -99,22 +100,62 @@ fun MediaListScreen(
         )
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        // ── Header — hugs status bar ───────────────────────────────────────────
-        Box(modifier = Modifier.fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(
-                MaterialTheme.colorScheme.background,
-                MaterialTheme.colorScheme.background.copy(alpha = 0f))))
-            .statusBarsPadding()
-            .padding(bottom = 8.dp, start = 24.dp, end = 24.dp, top = 8.dp)
+    Box(modifier = modifier.fillMaxSize()) {
+        // ── Content (fills, padded at top for status bar, at bottom for header bar) ──
+        Column(modifier = Modifier.fillMaxSize()) {
+            Spacer(Modifier.statusBarsPadding().height(8.dp))
+            when {
+                state.isLoading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+                state.filterTab == FilterTab.PLAYLISTS -> PlaylistsView(
+                    playlists = state.playlists, mediaList = state.mediaList + state.extraMediaList,
+                    onPlayPlaylist = onPlayPlaylist, onDeletePlaylist = onDeletePlaylist,
+                    onRenamePlaylist = onRenamePlaylist, modifier = Modifier.weight(1f).fillMaxWidth())
+                filteredItems.isEmpty() -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Rounded.LibraryMusic, null, modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
+                        Spacer(Modifier.height(12.dp))
+                        Text("No media found", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                    }
+                }
+                else -> LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 160.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(filteredItems, key = { it.id }) { item ->
+                        MediaRow(item = item,
+                            isPlaying = state.currentItem?.id == item.id && state.isPlaying,
+                            isFavourite = isFavourite(item),
+                            isImported = state.extraMediaList.any { it.id == item.id },
+                            onClick = { onItemClick(item) },
+                            onFavourite = { onAddToFavourites(item) },
+                            onLongPress = { addToPlaylistItem = item })
+                    }
+                }
+            }
+        }
+
+        // ── Bottom bar: Library title + filter chips + settings button ────────
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(
+                    MaterialTheme.colorScheme.background.copy(alpha = 0f),
+                    MaterialTheme.colorScheme.background)))
+                .navigationBarsPadding()
+                .padding(bottom = 8.dp, top = 12.dp, start = 16.dp, end = 16.dp)
         ) {
             Column {
+                // Title row + action buttons
                 Row(modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Library", style = MaterialTheme.typography.headlineLarge,
+                    Text("Library", style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (state.filterTab == FilterTab.PLAYLISTS) {
                             LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                                 IconButton(onClick = { showMergeDialog = true }) {
@@ -132,42 +173,18 @@ fun MediaListScreen(
                                 Icon(Icons.Rounded.FolderZip, "Import ZIP", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                             }
                         }
+                        // Settings button — bottom right, beside library
+                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                            IconButton(onClick = onSettingsClick) {
+                                Icon(Icons.Rounded.Settings, "Settings", tint = MaterialTheme.colorScheme.onSurface.copy(0.7f), modifier = Modifier.size(22.dp))
+                            }
+                        }
                     }
                 }
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
+                // Filter chips row
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterTab.values().forEach { tab -> FilterChip(tab, state.filterTab == tab) { onFilterChange(tab) } }
-                }
-            }
-        }
-
-        when {
-            state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            }
-            state.filterTab == FilterTab.PLAYLISTS -> PlaylistsView(
-                playlists = state.playlists, mediaList = state.mediaList + state.extraMediaList,
-                onPlayPlaylist = onPlayPlaylist, onDeletePlaylist = onDeletePlaylist,
-                onRenamePlaylist = onRenamePlaylist, modifier = Modifier.fillMaxSize())
-            filteredItems.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Rounded.LibraryMusic, null, modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
-                    Spacer(Modifier.height(12.dp))
-                    Text("No media found", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                }
-            }
-            else -> LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 160.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(filteredItems, key = { it.id }) { item ->
-                    MediaRow(item = item,
-                        isPlaying = state.currentItem?.id == item.id && state.isPlaying,
-                        isFavourite = isFavourite(item),
-                        isImported = state.extraMediaList.any { it.id == item.id },
-                        onClick = { onItemClick(item) },
-                        onFavourite = { onAddToFavourites(item) },
-                        onLongPress = { addToPlaylistItem = item })
                 }
             }
         }

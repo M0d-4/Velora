@@ -34,6 +34,7 @@ fun SettingsScreen(
     onMaterialYouToggle: (Boolean) -> Unit,
     usePixelUi: Boolean = false,
     onPixelUiToggle: (Boolean) -> Unit = {},
+    onBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val supportsM3 = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -50,11 +51,19 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Spacer(Modifier.height(8.dp))
-            Text("Settings",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(bottom = 4.dp))
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Settings",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground)
+                LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Rounded.Close, "Close Settings", modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(0.7f))
+                    }
+                }
+            }
 
             // ── Appearance ────────────────────────────────────────────────
             SettingsSectionHeader("Appearance")
