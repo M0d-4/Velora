@@ -189,61 +189,77 @@ fun MediaListScreen(
                 .padding(bottom = 8.dp, top = 12.dp, start = 16.dp, end = 16.dp)
         ) {
             Column {
-                // Top row: Settings (left) + filter chips (right side, scrollable row)
+                // Top row: filter chips only (full width)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Settings bottom-left
-                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
-                        IconButton(onClick = onSettingsClick) {
-                            Icon(Icons.Rounded.Settings, "Settings",
-                                tint = MaterialTheme.colorScheme.onSurface.copy(0.7f),
-                                modifier = Modifier.size(22.dp))
-                        }
-                    }
-                    // Filter chips — no animation, direct selection
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        tabs.forEach { tab ->
-                            FilterChip(tab, state.filterTab == tab) {
-                                onFilterChange(tab)
-                                scope.launch { pagerState.scrollToPage(tabs.indexOf(tab)) }
-                            }
+                    tabs.forEach { tab ->
+                        FilterChip(tab, state.filterTab == tab) {
+                            onFilterChange(tab)
+                            scope.launch { pagerState.scrollToPage(tabs.indexOf(tab)) }
                         }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
-                // Bottom row: Library title + action buttons (import zip, new playlist, merge if playlists tab)
-                Row(modifier = Modifier.fillMaxWidth(),
+                // Bottom row: [Library text + action buttons] on left, [Settings] on right
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Library", style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Left side: Library title + import zip + new playlist (+ merge if playlists tab)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            "Library",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(Modifier.width(4.dp))
                         // Merge only visible in playlists tab
                         if (state.filterTab == FilterTab.PLAYLISTS) {
                             LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                                 IconButton(onClick = { showMergeDialog = true }) {
-                                    Icon(Icons.Rounded.MergeType, "Merge",
+                                    Icon(
+                                        Icons.Rounded.MergeType, "Merge",
                                         tint = MaterialTheme.colorScheme.secondary,
-                                        modifier = Modifier.size(20.dp))
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                 }
                             }
                         }
                         LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                             IconButton(onClick = { showNewPlaylistDialog = true }) {
-                                Icon(Icons.Rounded.PlaylistAdd, "New Playlist",
+                                Icon(
+                                    Icons.Rounded.PlaylistAdd, "New Playlist",
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(22.dp))
+                                    modifier = Modifier.size(22.dp)
+                                )
                             }
                         }
                         LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                             IconButton(onClick = onImportZip) {
-                                Icon(Icons.Rounded.FolderZip, "Import ZIP",
+                                Icon(
+                                    Icons.Rounded.FolderZip, "Import ZIP",
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(22.dp))
+                                    modifier = Modifier.size(22.dp)
+                                )
                             }
+                        }
+                    }
+                    // Right side: Settings button at same height as Library text
+                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                        IconButton(onClick = onSettingsClick) {
+                            Icon(
+                                Icons.Rounded.Settings, "Settings",
+                                tint = MaterialTheme.colorScheme.onSurface.copy(0.7f),
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
                     }
                 }
