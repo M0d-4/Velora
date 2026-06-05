@@ -513,6 +513,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         playItem(queue[startIdx])
     }
 
+    fun dismissPlaylistChoice() { _state.update { it.copy(pendingPlaylistChoice = null) } }
+
 
     // ── Favorites & Playlists ──────────────────────────────────────────────────
 
