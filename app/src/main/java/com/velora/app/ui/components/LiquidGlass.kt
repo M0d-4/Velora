@@ -1,5 +1,6 @@
 package com.velora.app.ui.components
 
+import android.os.Build
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,7 +9,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.*
@@ -41,22 +41,41 @@ fun LiquidGlassSurface(
     // ── Frosted blur mode ─────────────────────────────────────────────────────
     if (useFrostedBlur && !usePixelUi) {
         val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-        val blurBase = if (isDark) 0.55f else 0.65f
-        val overlayColor = if (isDark)
-            Color.White.copy(alpha = (alpha * blurBase).coerceAtMost(0.55f))
-        else
-            Color.White.copy(alpha = (alpha * blurBase + 0.25f).coerceAtMost(0.82f))
-        val borderColor = if (isDark) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.55f)
         val shape = RoundedCornerShape(cornerRadius)
-        Box(
-            modifier = modifier
-                .clip(shape)
-                // soft blur on the content behind
-                .blur(radius = 18.dp)
-                .background(overlayColor)
-                .border(width = 0.8.dp, color = borderColor, shape = shape),
-            content = content
-        )
+        // Semi-transparent frosted panel — no .blur() (that blurs content, not background).
+        // On API 31+ we apply a RenderEffect blur via graphicsLayer so only the pixels
+        // drawn *behind* this composable appear blurred; the content on top stays sharp.
+        val panelAlpha = if (isDark) (alpha * 2.2f).coerceIn(0.18f, 0.55f)
+                         else        (alpha * 2.5f + 0.20f).coerceIn(0.30f, 0.72f)
+        val panelColor = if (isDark) Color(0xFF1C1C1E).copy(alpha = panelAlpha)
+                         else        Color(0xFFFFFFFF).copy(alpha = panelAlpha)
+        val borderColor = if (isDark) Color.White.copy(alpha = 0.18f)
+                          else        Color.White.copy(alpha = 0.55f)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // API 31+: true background blur via RenderEffect
+            Box(
+                modifier = modifier
+                    .clip(shape)
+                    .graphicsLayer {
+                        renderEffect = android.graphics.RenderEffect
+                            .createBlurEffect(40f, 40f, android.graphics.Shader.TileMode.CLAMP)
+                            .asComposeRenderEffect()
+                    }
+                    .background(panelColor)
+                    .border(width = 0.8.dp, color = borderColor, shape = shape),
+                content = content
+            )
+        } else {
+            // Below API 31: plain tinted panel (no blur available without NDK)
+            Box(
+                modifier = modifier
+                    .clip(shape)
+                    .background(panelColor)
+                    .border(width = 0.8.dp, color = borderColor, shape = shape),
+                content = content
+            )
+        }
         return
     }
 
