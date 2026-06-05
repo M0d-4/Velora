@@ -34,10 +34,16 @@ fun SettingsScreen(
     onMaterialYouToggle: (Boolean) -> Unit,
     usePixelUi: Boolean = false,
     onPixelUiToggle: (Boolean) -> Unit = {},
+    useFrostedBlur: Boolean = false,
+    onFrostedBlurToggle: (Boolean) -> Unit = {},
     onBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val supportsM3 = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+    // Mutual exclusion: if Pixel UI is on, Frosted Blur is disabled (greyed). Vice versa.
+    val frostedBlurEnabled = !usePixelUi
+    val pixelUiEnabled = !useFrostedBlur
 
     Box(modifier = modifier
         .fillMaxSize()
@@ -52,6 +58,8 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Spacer(Modifier.height(8.dp))
+
+            // ── Header ────────────────────────────────────────────────────
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Settings",
@@ -70,6 +78,7 @@ fun SettingsScreen(
             SettingsSectionHeader("Appearance")
             LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.14f, modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    // Material You
                     DraggableToggleRow(
                         icon     = Icons.Rounded.Palette,
                         title    = "Material You",
@@ -79,13 +88,26 @@ fun SettingsScreen(
                         onCheckedChange = { if (supportsM3) onMaterialYouToggle(it) }
                     )
                     SettingsDivider()
+                    // Pixel UI — greyed out when Frosted Blur is active
                     DraggableToggleRow(
                         icon     = Icons.Rounded.PhoneAndroid,
                         title    = "Pixel UI",
-                        subtitle = "Clean flat Material style, disables Liquid Glass",
+                        subtitle = if (!pixelUiEnabled) "Disabled while Frosted Blur is on"
+                                   else "Clean flat Material style, disables Liquid Glass",
                         checked  = usePixelUi,
-                        enabled  = true,
-                        onCheckedChange = onPixelUiToggle
+                        enabled  = pixelUiEnabled,
+                        onCheckedChange = { if (pixelUiEnabled) onPixelUiToggle(it) }
+                    )
+                    SettingsDivider()
+                    // Frosted Blur — greyed out when Pixel UI is active
+                    DraggableToggleRow(
+                        icon     = Icons.Rounded.BlurOn,
+                        title    = "Frosted Blur",
+                        subtitle = if (!frostedBlurEnabled) "Disabled while Pixel UI is on"
+                                   else "Frosted glass panels, disables Liquid Glass",
+                        checked  = useFrostedBlur,
+                        enabled  = frostedBlurEnabled,
+                        onCheckedChange = { if (frostedBlurEnabled) onFrostedBlurToggle(it) }
                     )
                 }
             }
@@ -102,7 +124,7 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Version stamp — appears at the foot of the scroll area ──
+            // ── Version stamp ─────────────────────────────────────────────
             Spacer(Modifier.height(8.dp))
             Box(
                 modifier = Modifier
@@ -128,7 +150,7 @@ fun SettingsScreen(
  *   drag right = turn on, drag left = turn off.
  */
 @Composable
-private fun DraggableToggleRow(
+internal fun DraggableToggleRow(
     icon: ImageVector,
     title: String,
     subtitle: String,
@@ -138,10 +160,7 @@ private fun DraggableToggleRow(
 ) {
     val iconBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
 
-    // Drag gesture: once the finger travels ≥40px horizontally we decide direction
     var dragConsumed by remember { mutableStateOf(false) }
-
-    // Spring scale for the whole row on press
     var rowPressed by remember { mutableStateOf(false) }
     val rowScale by animateFloatAsState(
         targetValue = if (rowPressed) 0.97f else 1f,
@@ -155,17 +174,14 @@ private fun DraggableToggleRow(
             .graphicsLayer { scaleX = rowScale; scaleY = rowScale }
             .pointerInput(checked, enabled) {
                 detectDragGestures(
-                    onDragStart = { dragConsumed = false; rowPressed = true },
-                    onDragEnd   = { rowPressed = false },
+                    onDragStart  = { dragConsumed = false; rowPressed = true },
+                    onDragEnd    = { rowPressed = false },
                     onDragCancel = { rowPressed = false },
                     onDrag = { _, dragAmount ->
                         if (!dragConsumed && enabled) {
                             val dx = dragAmount.x
-                            if (dx > 40f && !checked) {
-                                onCheckedChange(true); dragConsumed = true
-                            } else if (dx < -40f && checked) {
-                                onCheckedChange(false); dragConsumed = true
-                            }
+                            if (dx > 40f && !checked)  { onCheckedChange(true);  dragConsumed = true }
+                            else if (dx < -40f && checked) { onCheckedChange(false); dragConsumed = true }
                         }
                     }
                 )

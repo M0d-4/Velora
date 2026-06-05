@@ -42,6 +42,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.velora.app.ui.components.LiquidGlassSurface
 import com.velora.app.ui.components.LocalUsePixelUi
+import com.velora.app.ui.components.LocalUseFrostedBlur
 import com.velora.app.ui.components.liquidPressEffect
 import com.velora.app.ui.components.bouncePressEffect
 import com.velora.app.ui.screens.*
@@ -69,6 +70,7 @@ class MainActivity : ComponentActivity() {
             val prefs = getSharedPreferences("velora_prefs", MODE_PRIVATE)
             var useMaterialYou by remember { mutableStateOf(prefs.getBoolean("material_you", true)) }
             var usePixelUi by remember { mutableStateOf(prefs.getBoolean("pixel_ui", false)) }
+            var useFrostedBlur by remember { mutableStateOf(prefs.getBoolean("frosted_blur", false)) }
             VeloraTheme(useMaterialYou = useMaterialYou) {
                 VeloraApp(
                     viewModel = viewModel,
@@ -81,6 +83,11 @@ class MainActivity : ComponentActivity() {
                     onPixelUiToggle = { enabled ->
                         usePixelUi = enabled
                         prefs.edit().putBoolean("pixel_ui", enabled).apply()
+                    },
+                    useFrostedBlur = useFrostedBlur,
+                    onFrostedBlurToggle = { enabled ->
+                        useFrostedBlur = enabled
+                        prefs.edit().putBoolean("frosted_blur", enabled).apply()
                     }
                 )
             }
@@ -95,7 +102,9 @@ fun VeloraApp(
     useMaterialYou: Boolean,
     onMaterialYouToggle: (Boolean) -> Unit,
     usePixelUi: Boolean = false,
-    onPixelUiToggle: (Boolean) -> Unit = {}
+    onPixelUiToggle: (Boolean) -> Unit = {},
+    useFrostedBlur: Boolean = false,
+    onFrostedBlurToggle: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
@@ -197,7 +206,10 @@ fun VeloraApp(
     val isVideoFullscreen = isVideoPlayer && state.isLandscape
     val isAudioLandscape = isAudioPlayer && state.isLandscape
 
-    CompositionLocalProvider(LocalUsePixelUi provides usePixelUi) {
+    CompositionLocalProvider(
+        LocalUsePixelUi provides usePixelUi,
+        LocalUseFrostedBlur provides (useFrostedBlur && !usePixelUi)
+    ) {
         Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
@@ -256,6 +268,7 @@ fun VeloraApp(
                             MiniPlayer(
                                 state = state,
                                 onPlayPause = viewModel::togglePlayPause,
+                                onClose = viewModel::stopPlayback,
                                 onClick = { currentScreen = Screen.PLAYER }
                             )
                         }
@@ -303,6 +316,7 @@ fun VeloraApp(
                                 onPlayPrev = viewModel::playPrev,
                                 isFavourite = state.currentItem?.let { viewModel.isFavourite(it) } ?: false,
                                 onRotate = onRotate,
+                                onClose = { viewModel.stopPlayback(); currentScreen = Screen.LIBRARY },
                                 onBack = { currentScreen = Screen.LIBRARY }
                             )
                         }
@@ -314,6 +328,8 @@ fun VeloraApp(
                             onMaterialYouToggle = onMaterialYouToggle,
                             usePixelUi = usePixelUi,
                             onPixelUiToggle = onPixelUiToggle,
+                            useFrostedBlur = useFrostedBlur,
+                            onFrostedBlurToggle = onFrostedBlurToggle,
                             onBack = { showSettings = false }
                         )
                     }
@@ -329,6 +345,8 @@ fun VeloraApp(
                             onMaterialYouToggle = onMaterialYouToggle,
                             usePixelUi = usePixelUi,
                             onPixelUiToggle = onPixelUiToggle,
+                            useFrostedBlur = useFrostedBlur,
+                            onFrostedBlurToggle = onFrostedBlurToggle,
                             onBack = { showSettings = false }
                         )
                     }
@@ -346,8 +364,15 @@ fun VeloraApp(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             val inf = rememberInfiniteTransition(label = "th")
-                            val heartScale by inf.animateFloat(1f, 1.22f,
-                                infiniteRepeatable(tween(500), RepeatMode.Reverse), "ths")
+                            val heartScale by inf.animateFloat(
+                                initialValue = 1f,
+                                targetValue = 1.22f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(durationMillis = 500),
+                                    repeatMode = RepeatMode.Reverse
+                                ),
+                                label = "ths"
+                            )
                             Icon(Icons.Rounded.Favorite, null,
                                 modifier = Modifier.size(16.dp)
                                     .graphicsLayer { scaleX = heartScale; scaleY = heartScale },
@@ -365,7 +390,7 @@ fun VeloraApp(
 // ── Mini player (audio only) ───────────────────────────────────────────────────
 
 @Composable
-private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClick: () -> Unit) {
+private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClose: () -> Unit, onClick: () -> Unit) {
     val item = state.currentItem ?: return
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -390,7 +415,7 @@ private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClick: () 
                         tint = MaterialTheme.colorScheme.primary.copy(0.7f))
                 }
             }
-            Column(Modifier.weight(1f).padding(end = 8.dp)) {
+            Column(Modifier.weight(1f).padding(end = 4.dp)) {
                 Text(item.title, style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold, maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -402,15 +427,30 @@ private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClick: () 
                 }
             }
             val progress = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f
-            LinearProgressIndicator(progress = { progress }, modifier = Modifier.width(44.dp).height(3.dp),
+            LinearProgressIndicator(progress = { progress }, modifier = Modifier.width(36.dp).height(3.dp),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.primaryContainer.copy(0.4f))
             val playInteraction = remember { MutableInteractionSource() }
             val playPressed by playInteraction.collectIsPressedAsState()
             Box(Modifier.bouncePressEffect(playPressed)) {
-                IconButton(onClick = onPlayPause, interactionSource = playInteraction) {
+                IconButton(onClick = onPlayPause, interactionSource = playInteraction,
+                    modifier = Modifier.size(40.dp)) {
                     Icon(if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+                        null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                }
+            }
+            // X close button
+            val closeInteraction = remember { MutableInteractionSource() }
+            val closePressed by closeInteraction.collectIsPressedAsState()
+            Box(Modifier.bouncePressEffect(closePressed)) {
+                IconButton(
+                    onClick = onClose,
+                    interactionSource = closeInteraction,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(Icons.Rounded.Close, "Close player",
+                        tint = MaterialTheme.colorScheme.onSurface.copy(0.5f),
+                        modifier = Modifier.size(18.dp))
                 }
             }
         }

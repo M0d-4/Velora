@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.*
@@ -17,6 +18,9 @@ import androidx.compose.ui.unit.dp
 
 /** When true, all LiquidGlass surfaces render as flat Material surfaces (Pixel UI mode). */
 val LocalUsePixelUi = compositionLocalOf { false }
+
+/** When true, all LiquidGlass surfaces render as frosted-blur panels (Pixel UI must be off). */
+val LocalUseFrostedBlur = compositionLocalOf { false }
 
 /**
  * Liquid Glass surface — frosted glass look with animated border glow.
@@ -32,6 +36,31 @@ fun LiquidGlassSurface(
     content: @Composable BoxScope.() -> Unit
 ) {
     val usePixelUi = LocalUsePixelUi.current
+    val useFrostedBlur = LocalUseFrostedBlur.current
+
+    // ── Frosted blur mode ─────────────────────────────────────────────────────
+    if (useFrostedBlur && !usePixelUi) {
+        val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+        val blurBase = if (isDark) 0.55f else 0.65f
+        val overlayColor = if (isDark)
+            Color.White.copy(alpha = (alpha * blurBase).coerceAtMost(0.55f))
+        else
+            Color.White.copy(alpha = (alpha * blurBase + 0.25f).coerceAtMost(0.82f))
+        val borderColor = if (isDark) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.55f)
+        val shape = RoundedCornerShape(cornerRadius)
+        Box(
+            modifier = modifier
+                .clip(shape)
+                // soft blur on the content behind
+                .blur(radius = 18.dp)
+                .background(overlayColor)
+                .border(width = 0.8.dp, color = borderColor, shape = shape),
+            content = content
+        )
+        return
+    }
+
+    // ── Pixel UI mode ─────────────────────────────────────────────────────────
     if (usePixelUi) {
         // Pixel UI: vibrant Material surface with dynamic color accent
         val shape = RoundedCornerShape(cornerRadius)
@@ -66,8 +95,12 @@ fun LiquidGlassSurface(
     // Animate a slow border pulse glow only (no moving shimmer)
     val borderAnim = rememberInfiniteTransition(label = "borderPulse")
     val borderPulse by borderAnim.animateFloat(
-        initialValue = 0f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(2400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
         label = "borderPulse"
     )
 

@@ -8,6 +8,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -80,64 +82,102 @@ fun MediaListScreen(
     var showMultiDeleteMediaDialog by remember { mutableStateOf(false) }
     var showMultiDeletePlaylistDialog by remember { mutableStateOf(false) }
 
-    // Multi-delete dialogs
+    val tabs = FilterTab.values()
+    val pagerState = rememberPagerState(
+        initialPage = tabs.indexOf(state.filterTab).coerceAtLeast(0),
+        pageCount = { tabs.size }
+    )
+    val scope = rememberCoroutineScope()
+
+    // Sync pager -> filter tab
+    LaunchedEffect(pagerState.currentPage) {
+        val tab = tabs.getOrElse(pagerState.currentPage) { FilterTab.ALL }
+        if (tab != state.filterTab) onFilterChange(tab)
+    }
+    // Sync filter tab -> pager (e.g. if something else changes the tab)
+    LaunchedEffect(state.filterTab) {
+        val idx = tabs.indexOf(state.filterTab).coerceAtLeast(0)
+        if (pagerState.currentPage != idx) pagerState.scrollToPage(idx)
+    }
+
     if (showMultiDeleteMediaDialog) {
-        MultiDeleteDialog(
-            count = selectedMediaIds.size,
-            entityName = "file",
+        MultiDeleteDialog(count = selectedMediaIds.size, entityName = "file",
             onDeleteWithFiles = { onMultiDeleteMedia(selectedMediaIds, true); selectedMediaIds = emptySet(); multiSelectMode = false; showMultiDeleteMediaDialog = false },
             onDeleteWithoutFiles = { onMultiDeleteMedia(selectedMediaIds, false); selectedMediaIds = emptySet(); multiSelectMode = false; showMultiDeleteMediaDialog = false },
-            onDismiss = { showMultiDeleteMediaDialog = false }
-        )
+            onDismiss = { showMultiDeleteMediaDialog = false })
     }
     if (showMultiDeletePlaylistDialog) {
-        MultiDeleteDialog(
-            count = selectedPlaylistIds.size,
-            entityName = "playlist",
+        MultiDeleteDialog(count = selectedPlaylistIds.size, entityName = "playlist",
             onDeleteWithFiles = { onMultiDeletePlaylists(selectedPlaylistIds, true); selectedPlaylistIds = emptySet(); multiSelectMode = false; showMultiDeletePlaylistDialog = false },
             onDeleteWithoutFiles = { onMultiDeletePlaylists(selectedPlaylistIds, false); selectedPlaylistIds = emptySet(); multiSelectMode = false; showMultiDeletePlaylistDialog = false },
-            onDismiss = { showMultiDeletePlaylistDialog = false }
-        )
+            onDismiss = { showMultiDeletePlaylistDialog = false })
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // ── Content (fills, padded at top for status bar, at bottom for header bar) ──
         Column(modifier = Modifier.fillMaxSize()) {
             Spacer(Modifier.statusBarsPadding().height(8.dp))
-            when {
-                state.isLoading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+
+            // ── Swipeable content pages ────────────────────────────────────
+            if (state.isLoading) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
-                state.filterTab == FilterTab.PLAYLISTS -> PlaylistsView(
-                    playlists = state.playlists, mediaList = state.mediaList + state.extraMediaList,
-                    onPlayPlaylist = onPlayPlaylist, onDeletePlaylist = onDeletePlaylist,
-                    onRenamePlaylist = onRenamePlaylist, modifier = Modifier.weight(1f).fillMaxWidth())
-                filteredItems.isEmpty() -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Rounded.LibraryMusic, null, modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
-                        Spacer(Modifier.height(12.dp))
-                        Text("No media found", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                    }
-                }
-                else -> LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 160.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(filteredItems, key = { it.id }) { item ->
-                        MediaRow(item = item,
-                            isPlaying = state.currentItem?.id == item.id && state.isPlaying,
-                            isFavourite = isFavourite(item),
-                            isImported = state.extraMediaList.any { it.id == item.id },
-                            onClick = { onItemClick(item) },
-                            onFavourite = { onAddToFavourites(item) },
-                            onLongPress = { addToPlaylistItem = item })
+            } else {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    userScrollEnabled = true
+                ) { page ->
+                    val tab = tabs.getOrElse(page) { FilterTab.ALL }
+                    when (tab) {
+                        FilterTab.PLAYLISTS -> PlaylistsView(
+                            playlists = state.playlists,
+                            mediaList = state.mediaList + state.extraMediaList,
+                            onPlayPlaylist = onPlayPlaylist,
+                            onDeletePlaylist = onDeletePlaylist,
+                            onRenamePlaylist = onRenamePlaylist,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        else -> {
+                            val items = when (tab) {
+                                FilterTab.ALL   -> state.mediaList + state.extraMediaList
+                                FilterTab.AUDIO -> (state.mediaList + state.extraMediaList).filter { !it.isVideo }
+                                FilterTab.VIDEO -> (state.mediaList + state.extraMediaList).filter { it.isVideo }
+                                else            -> emptyList()
+                            }.filter { it.id !in state.hiddenItemIds }
+                            if (items.isEmpty()) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(Icons.Rounded.LibraryMusic, null, modifier = Modifier.size(64.dp),
+                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
+                                        Spacer(Modifier.height(12.dp))
+                                        Text("No media found", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 160.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    items(items, key = { it.id }) { item ->
+                                        MediaRow(item = item,
+                                            isPlaying = state.currentItem?.id == item.id && state.isPlaying,
+                                            isFavourite = isFavourite(item),
+                                            isImported = state.extraMediaList.any { it.id == item.id },
+                                            onClick = { onItemClick(item) },
+                                            onFavourite = { onAddToFavourites(item) },
+                                            onLongPress = { addToPlaylistItem = item })
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // ── Bottom bar: filter chips + settings | Library title + action buttons ──
+        // ── Bottom bar ────────────────────────────────────────────────────────
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -149,45 +189,60 @@ fun MediaListScreen(
                 .padding(bottom = 8.dp, top = 12.dp, start = 16.dp, end = 16.dp)
         ) {
             Column {
-                // Top row: filter chips + settings button
+                // Top row: Settings (left) + filter chips (right side, scrollable row)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterTab.values().forEach { tab -> FilterChip(tab, state.filterTab == tab) { onFilterChange(tab) } }
-                    }
-                    // Settings button beside filter chips
+                    // Settings bottom-left
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onSettingsClick) {
-                            Icon(Icons.Rounded.Settings, "Settings", tint = MaterialTheme.colorScheme.onSurface.copy(0.7f), modifier = Modifier.size(22.dp))
+                            Icon(Icons.Rounded.Settings, "Settings",
+                                tint = MaterialTheme.colorScheme.onSurface.copy(0.7f),
+                                modifier = Modifier.size(22.dp))
+                        }
+                    }
+                    // Filter chips — no animation, direct selection
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        tabs.forEach { tab ->
+                            FilterChip(tab, state.filterTab == tab) {
+                                onFilterChange(tab)
+                                scope.launch { pagerState.scrollToPage(tabs.indexOf(tab)) }
+                            }
                         }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
-                // Bottom row: Library title + import zip + create playlist buttons
+                // Bottom row: Library title + action buttons (import zip, new playlist, merge if playlists tab)
                 Row(modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Library", style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        // Merge only visible in playlists tab
                         if (state.filterTab == FilterTab.PLAYLISTS) {
                             LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                                 IconButton(onClick = { showMergeDialog = true }) {
-                                    Icon(Icons.Rounded.MergeType, "Merge", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
+                                    Icon(Icons.Rounded.MergeType, "Merge",
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(20.dp))
                                 }
                             }
                         }
                         LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                             IconButton(onClick = { showNewPlaylistDialog = true }) {
-                                Icon(Icons.Rounded.PlaylistAdd, "New Playlist", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                                Icon(Icons.Rounded.PlaylistAdd, "New Playlist",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(22.dp))
                             }
                         }
                         LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                             IconButton(onClick = onImportZip) {
-                                Icon(Icons.Rounded.FolderZip, "Import ZIP", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                                Icon(Icons.Rounded.FolderZip, "Import ZIP",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(22.dp))
                             }
                         }
                     }
