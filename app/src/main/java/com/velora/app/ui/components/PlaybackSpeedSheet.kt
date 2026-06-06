@@ -67,14 +67,12 @@ fun PlaybackSpeedControl(
                     Icon(
                         Icons.Rounded.Speed, null,
                         modifier = Modifier.size(14.dp),
-                        tint = if (isVideoOverlay) Color.White.copy(0.85f)
-                               else MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         speedLabel(currentSpeed),
                         fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                        color = if (isVideoOverlay) Color.White.copy(0.9f)
-                                else MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }

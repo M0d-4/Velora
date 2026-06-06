@@ -199,9 +199,9 @@ fun MediaListScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                            .padding(horizontal = 6.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceEvenly
+                        horizontalArrangement = Arrangement.Start
                     ) {
                         tabs.forEach { tab ->
                             FilterChip(tab, state.filterTab == tab, Modifier.weight(1f)) {

@@ -129,8 +129,8 @@ fun SettingsScreen(
                 }
             }
 
-            // ── About ─────────────────────────────────────────────────────
-            SettingsSectionHeader("About")
+            // ── Info ──────────────────────────────────────────────────────
+            SettingsSectionHeader("Info")
             LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.14f, modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(vertical = 4.dp)) {
                     SettingsInfoRow(Icons.Rounded.Lyrics,     "Lyrics Formats", ".lrc · .srt")

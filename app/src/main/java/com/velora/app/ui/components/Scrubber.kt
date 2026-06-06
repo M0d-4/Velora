@@ -80,10 +80,10 @@ fun MediaScrubber(
     val thumbWidthDp  by animateDpAsState(if (isDragging) 20.dp else 12.dp, label = "thumb")
     val thumbHeightDp by animateDpAsState(if (isDragging) 20.dp else 12.dp, label = "thumbH")
 
-    val primary        = if (isVideoOverlay) Color.White else MaterialTheme.colorScheme.primary
-    val trackBg        = if (isVideoOverlay) Color.White.copy(0.25f) else MaterialTheme.colorScheme.onSurface.copy(0.18f)
-    val iconTint       = if (isVideoOverlay) Color.White.copy(0.85f) else MaterialTheme.colorScheme.primary
-    val timeTint       = if (isVideoOverlay) Color.White.copy(0.7f) else MaterialTheme.colorScheme.primary.copy(0.7f)
+    val primary        = MaterialTheme.colorScheme.primary
+    val trackBg        = if (isVideoOverlay) MaterialTheme.colorScheme.primary.copy(0.25f) else MaterialTheme.colorScheme.onSurface.copy(0.18f)
+    val iconTint       = MaterialTheme.colorScheme.primary
+    val timeTint       = MaterialTheme.colorScheme.primary.copy(0.75f)
 
     Column(modifier = modifier) {
         // ── Row: [rewind btn] [track] [forward btn] ────────────────────────

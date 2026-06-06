@@ -254,9 +254,11 @@ private fun AudioPlayerPortrait(
 
     val (dominantColor, secondaryColor) = rememberCoverArtColors(item)
 
-    Box(modifier = modifier.fillMaxSize()
-        .pointerInput(Unit) { detectTapGestures { if (speedExpanded) speedExpanded = false } }) {
-        AnimatedBackground(dominantColor = dominantColor, secondaryColor = secondaryColor)
+    Box(modifier = modifier.fillMaxSize()) {
+        // Background sits behind all controls; tap on it dismisses the speed panel
+        Box(Modifier.fillMaxSize().pointerInput(speedExpanded) {
+            detectTapGestures { if (speedExpanded) speedExpanded = false }
+        }) { AnimatedBackground(dominantColor = dominantColor, secondaryColor = secondaryColor) }
         Column(
             modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
                 .padding(horizontal = 24.dp),
@@ -418,9 +420,10 @@ private fun AudioPlayerLandscape(
     var speedExpanded by remember { mutableStateOf(false) }
     val (dominantColor, secondaryColor) = rememberCoverArtColors(item)
 
-    Box(modifier = modifier.fillMaxSize()
-        .pointerInput(Unit) { detectTapGestures { if (speedExpanded) speedExpanded = false } }) {
-        AnimatedBackground(dominantColor = dominantColor, secondaryColor = secondaryColor)
+    Box(modifier = modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().pointerInput(speedExpanded) {
+            detectTapGestures { if (speedExpanded) speedExpanded = false }
+        }) { AnimatedBackground(dominantColor = dominantColor, secondaryColor = secondaryColor) }
         // Back + Close pinned to very top-left of the screen
         Row(
             modifier = Modifier

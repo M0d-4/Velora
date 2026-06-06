@@ -68,24 +68,27 @@ fun LiquidGlassSurface(
 
     // ── Pixel UI mode ─────────────────────────────────────────────────────────
     if (usePixelUi) {
-        // Pixel UI: fully opaque Material surface with a subtle primary tint
+        // Pixel UI: vibrant opaque Material surface — liquid glass is fully disabled.
+        // Restores the original gradient look but with no transparency.
         val shape = RoundedCornerShape(cornerRadius)
-        val surfaceColor = MaterialTheme.colorScheme.surfaceVariant
-        val primaryTint  = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+        val primary   = MaterialTheme.colorScheme.primary
+        val secondary = MaterialTheme.colorScheme.secondary
+        val tertiary  = MaterialTheme.colorScheme.tertiary
+        val surface   = MaterialTheme.colorScheme.surfaceVariant
+        // Pick accent based on alpha tier (same logic as before) but blend opaquely into surface
+        val accentColor = when {
+            alpha > 0.28f -> androidx.compose.ui.graphics.lerp(surface, primary,   0.30f)
+            alpha > 0.18f -> androidx.compose.ui.graphics.lerp(surface, secondary, 0.22f)
+            else          -> androidx.compose.ui.graphics.lerp(surface, tertiary,  0.16f)
+        }
         Box(
             modifier = modifier
                 .clip(shape)
                 .background(
-                    androidx.compose.ui.graphics.Brush.linearGradient(
-                        listOf(surfaceColor, androidx.compose.ui.graphics.lerp(surfaceColor, MaterialTheme.colorScheme.primary, 0.08f))
-                    ),
+                    androidx.compose.ui.graphics.Brush.linearGradient(listOf(surface, accentColor)),
                     shape
                 )
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                    shape = shape
-                ),
+                .border(width = 1.dp, color = primary.copy(alpha = 0.20f), shape = shape),
             content = content
         )
         return
