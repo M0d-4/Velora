@@ -72,9 +72,9 @@ fun LiquidGlassSurface(
         val tertiary = MaterialTheme.colorScheme.tertiary
         // Cycle tint between primary / secondary / tertiary based on alpha tier
         val accentColor = when {
-            alpha > 0.28f -> primary.copy(alpha = (alpha * 0.7f).coerceAtMost(1f))
-            alpha > 0.18f -> secondary.copy(alpha = (alpha * 0.65f).coerceAtMost(1f))
-            else -> tertiary.copy(alpha = (alpha * 0.55f).coerceAtMost(1f))
+            alpha > 0.28f -> primary
+            alpha > 0.18f -> secondary
+            else -> tertiary
         }
         Box(
             modifier = modifier
