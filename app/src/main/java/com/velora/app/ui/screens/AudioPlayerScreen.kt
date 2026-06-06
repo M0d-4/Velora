@@ -3,6 +3,7 @@ package com.velora.app.ui.screens
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -326,8 +327,10 @@ private fun AudioPlayerPortrait(
                     Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(18.dp),
                         tint = if (state.isShuffle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.55f))
                 }
-                LiquidGlassSurface(cornerRadius = 20.dp, alpha = if (state.isQueueMode) 0.32f else if (!isPlaylistContext) 0.05f else 0.12f, modifier = Modifier.height(42.dp).wrapContentWidth()) {
-                    Row(modifier = Modifier.pointerInput(isPlaylistContext) { if (isPlaylistContext) detectTapGestures { onQueueToggle() } }.padding(horizontal = 14.dp).fillMaxHeight(),
+                LiquidGlassSurface(cornerRadius = 20.dp, alpha = if (state.isQueueMode) 0.32f else if (!isPlaylistContext) 0.05f else 0.12f,
+                    modifier = Modifier.height(42.dp).wrapContentWidth()
+                        .then(if (isPlaylistContext) Modifier.clickable { onQueueToggle() } else Modifier)) {
+                    Row(modifier = Modifier.padding(horizontal = 14.dp).fillMaxHeight(),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         Icon(Icons.Rounded.QueueMusic, null, Modifier.size(16.dp),
                             tint = if (!isPlaylistContext) MaterialTheme.colorScheme.onSurface.copy(0.25f)
@@ -414,6 +417,26 @@ private fun AudioPlayerLandscape(
     Box(modifier = modifier.fillMaxSize()
         .pointerInput(Unit) { detectTapGestures { if (speedExpanded) speedExpanded = false } }) {
         AnimatedBackground(dominantColor = dominantColor, secondaryColor = secondaryColor)
+        // Back + Close pinned to very top-left of the screen
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .systemBarsPadding()
+                .padding(start = 16.dp, top = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface.copy(0.8f))
+                }
+            }
+            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Rounded.Close, "Close", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface.copy(0.7f))
+                }
+            }
+        }
         Row(modifier = Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 20.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             Column(modifier = Modifier.weight(0.44f).fillMaxHeight(),
@@ -428,29 +451,13 @@ private fun AudioPlayerLandscape(
                     color = MaterialTheme.colorScheme.onSurface.copy(0.6f), textAlign = TextAlign.Center, maxLines = 1)
             }
             Column(modifier = Modifier.weight(0.56f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-                // Top row: Back + Close on left, speed control center, rotate on right
+                // Top row: speed control on left, rotate on right
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    // Back + Close on the top-left
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
-                            IconButton(onClick = onBack) {
-                                Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface.copy(0.8f))
-                            }
-                        }
-                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
-                            IconButton(onClick = onClose) {
-                                Icon(Icons.Rounded.Close, "Close", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface.copy(0.7f))
-                            }
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        PlaybackSpeedControl(currentSpeed = state.playbackSpeed, onSpeedChange = onSpeedChange,
-                            expanded = speedExpanded, onExpandedChange = { speedExpanded = it })
-                        // Rotate always visible
-                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
-                            IconButton(onClick = onRotate) {
-                                Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface.copy(0.7f))
-                            }
+                    PlaybackSpeedControl(currentSpeed = state.playbackSpeed, onSpeedChange = onSpeedChange,
+                        expanded = speedExpanded, onExpandedChange = { speedExpanded = it })
+                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                        IconButton(onClick = onRotate) {
+                            Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface.copy(0.7f))
                         }
                     }
                 }
@@ -483,8 +490,10 @@ private fun AudioPlayerLandscape(
                         Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(16.dp),
                             tint = if (state.isShuffle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.55f))
                     }
-                    LiquidGlassSurface(cornerRadius = 20.dp, alpha = if (state.isQueueMode) 0.32f else if (!isPlaylistContext) 0.05f else 0.12f, modifier = Modifier.height(36.dp).wrapContentWidth()) {
-                        Row(modifier = Modifier.pointerInput(isPlaylistContext) { if (isPlaylistContext) detectTapGestures { onQueueToggle() } }.padding(horizontal = 10.dp).fillMaxHeight(),
+                    LiquidGlassSurface(cornerRadius = 20.dp, alpha = if (state.isQueueMode) 0.32f else if (!isPlaylistContext) 0.05f else 0.12f,
+                        modifier = Modifier.height(36.dp).wrapContentWidth()
+                            .then(if (isPlaylistContext) Modifier.clickable { onQueueToggle() } else Modifier)) {
+                        Row(modifier = Modifier.padding(horizontal = 10.dp).fillMaxHeight(),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Icon(Icons.Rounded.QueueMusic, null, Modifier.size(14.dp),
                                 tint = if (!isPlaylistContext) MaterialTheme.colorScheme.onSurface.copy(0.25f)

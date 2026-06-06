@@ -365,7 +365,7 @@ fun VeloraApp(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
-                        .padding(bottom = 132.dp, start = 12.dp, end = 12.dp)
+                        .padding(bottom = 148.dp, start = 12.dp, end = 12.dp)
                 ) {
                     MiniPlayer(
                         state = state,

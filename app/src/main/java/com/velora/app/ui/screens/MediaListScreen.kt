@@ -21,8 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -35,6 +34,8 @@ import com.velora.app.PlayerState
 import com.velora.app.model.MediaItem
 import com.velora.app.model.Playlist
 import com.velora.app.ui.components.LiquidGlassSurface
+import com.velora.app.ui.components.LocalUseFrostedBlur
+import com.velora.app.ui.components.LocalUsePixelUi
 import com.velora.app.util.MediaRepository
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -157,7 +158,7 @@ fun MediaListScreen(
                             } else {
                                 LazyColumn(
                                     modifier = Modifier.fillMaxSize(),
-                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 160.dp),
+                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 220.dp),
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     items(items, key = { it.id }) { item ->
@@ -268,7 +269,7 @@ fun MediaListScreen(
                             IconButton(onClick = onSettingsClick) {
                                 Icon(
                                     Icons.Rounded.Settings, "Settings",
-                                    tint = MaterialTheme.colorScheme.secondary,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(22.dp)
                                 )
                             }
@@ -540,7 +541,7 @@ private fun RenamePlaylistDialog(currentName: String, onRename: (String) -> Unit
 private fun PlaylistsView(playlists: List<Playlist>, mediaList: List<MediaItem>,
     onPlayPlaylist: (Playlist) -> Unit, onDeletePlaylist: (Long) -> Unit,
     onRenamePlaylist: (Long, String) -> Unit, modifier: Modifier = Modifier) {
-    LazyColumn(modifier = modifier, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 160.dp),
+    LazyColumn(modifier = modifier, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 220.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items(playlists, key = { it.id }) { playlist ->
             PlaylistRow(playlist = playlist, mediaList = mediaList, onPlay = { onPlayPlaylist(playlist) },
@@ -607,17 +608,48 @@ private fun PlaylistRow(playlist: Playlist, mediaList: List<MediaItem>, onPlay: 
 private fun FilterChip(tab: FilterTab, selected: Boolean, onClick: () -> Unit) {
     val label = when (tab) { FilterTab.ALL -> "All"; FilterTab.AUDIO -> "Audio"; FilterTab.VIDEO -> "Video"; FilterTab.PLAYLISTS -> "Playlists" }
     val icon  = when (tab) { FilterTab.ALL -> Icons.Rounded.GridView; FilterTab.AUDIO -> Icons.Rounded.MusicNote; FilterTab.VIDEO -> Icons.Rounded.Videocam; FilterTab.PLAYLISTS -> Icons.Rounded.PlaylistPlay }
-    val tint  = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.6f)
+
+    val usePixelUi     = LocalUsePixelUi.current
+    val useFrostedBlur = LocalUseFrostedBlur.current
+
+    val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.55f)
+
+    // Selected background adapts to the active UI mode
+    val selectedBg: androidx.compose.ui.graphics.Brush = when {
+        usePixelUi -> androidx.compose.ui.graphics.Brush.linearGradient(
+            listOf(
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
+                MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f)
+            )
+        )
+        useFrostedBlur -> {
+            val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+            val c = if (isDark) androidx.compose.ui.graphics.Color.White.copy(alpha = 0.18f)
+                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+            androidx.compose.ui.graphics.Brush.linearGradient(listOf(c, c))
+        }
+        else -> androidx.compose.ui.graphics.Brush.verticalGradient(
+            listOf(
+                androidx.compose.ui.graphics.Color.White.copy(alpha = 0.22f),
+                androidx.compose.ui.graphics.Color.White.copy(alpha = 0.12f)
+            )
+        )
+    }
+
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
+            .weight(1f)
+            .clip(RoundedCornerShape(14.dp))
+            .then(
+                if (selected) Modifier.background(selectedBg)
+                else Modifier
+            )
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 6.dp),
+            .padding(vertical = 7.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Icon(icon, null, modifier = Modifier.size(18.dp), tint = tint)
+            Icon(icon, null, modifier = Modifier.size(22.dp), tint = tint)
             Text(label, fontSize = 10.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = tint)
         }
     }
