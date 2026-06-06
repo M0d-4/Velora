@@ -365,7 +365,7 @@ fun VeloraApp(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
-                        .padding(bottom = 148.dp, start = 12.dp, end = 12.dp)
+                        .padding(bottom = 148.dp, start = 16.dp, end = 16.dp)
                 ) {
                     MiniPlayer(
                         state = state,
@@ -503,7 +503,7 @@ private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClose: () 
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(Icons.Rounded.Close, "Close player",
-                        tint = MaterialTheme.colorScheme.onSurface.copy(0.5f),
+                        tint = MaterialTheme.colorScheme.primary.copy(0.5f),
                         modifier = Modifier.size(18.dp))
                 }
             }

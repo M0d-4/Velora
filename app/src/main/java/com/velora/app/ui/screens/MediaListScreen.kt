@@ -190,9 +190,9 @@ fun MediaListScreen(
                 .padding(bottom = 8.dp, top = 12.dp, start = 16.dp, end = 16.dp)
         ) {
             Column {
-                // Top row: filter chips in a floating squircle bar
+                // Top row: filter chips in a floating pill bar
                 LiquidGlassSurface(
-                    cornerRadius = 24.dp,
+                    cornerRadius = 999.dp,
                     alpha = 0.18f,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -612,7 +612,7 @@ private fun FilterChip(tab: FilterTab, selected: Boolean, modifier: Modifier = M
     val usePixelUi     = LocalUsePixelUi.current
     val useFrostedBlur = LocalUseFrostedBlur.current
 
-    val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.55f)
+    val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(0.45f)
 
     // Selected background adapts to the active UI mode
     val selectedBg: androidx.compose.ui.graphics.Brush = when {
@@ -638,7 +638,7 @@ private fun FilterChip(tab: FilterTab, selected: Boolean, modifier: Modifier = M
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(999.dp))
             .then(
                 if (selected) Modifier.background(selectedBg)
                 else Modifier

@@ -64,7 +64,7 @@ fun PlayerControls(
             ) {
                 Icon(Icons.Rounded.Shuffle, "Shuffle", modifier = Modifier.size(18.dp),
                     tint = if (isShuffle) MaterialTheme.colorScheme.primary
-                           else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
+                           else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
             }
 
             val queueInteraction = remember { MutableInteractionSource() }
@@ -83,10 +83,10 @@ fun PlayerControls(
                 ) {
                     Icon(Icons.Rounded.QueueMusic, null, modifier = Modifier.size(16.dp),
                         tint = if (isQueueMode) MaterialTheme.colorScheme.primary
-                               else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
+                               else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
                     Text(if (isQueueMode) "Queue On" else "Play Next", fontSize = 12.sp,
                         color = if (isQueueMode) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                else MaterialTheme.colorScheme.primary.copy(alpha = 0.55f))
                 }
             }
         }
@@ -162,7 +162,7 @@ fun SkipAndHeartPill(
                     Text("${secs}s", fontSize = 13.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSelected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                else MaterialTheme.colorScheme.primary.copy(alpha = 0.55f))
                 }
             }
 
@@ -312,7 +312,7 @@ fun SkipButton(
         ) {
             Icon(icon, desc,
                 modifier = Modifier.size(26.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
+                tint = MaterialTheme.colorScheme.primary)
         }
     }
 }

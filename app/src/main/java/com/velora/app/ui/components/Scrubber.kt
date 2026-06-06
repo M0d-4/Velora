@@ -82,8 +82,8 @@ fun MediaScrubber(
 
     val primary        = if (isVideoOverlay) Color.White else MaterialTheme.colorScheme.primary
     val trackBg        = if (isVideoOverlay) Color.White.copy(0.25f) else MaterialTheme.colorScheme.onSurface.copy(0.18f)
-    val iconTint       = if (isVideoOverlay) Color.White.copy(0.85f) else MaterialTheme.colorScheme.onSurface.copy(0.75f)
-    val timeTint       = if (isVideoOverlay) Color.White.copy(0.7f) else MaterialTheme.colorScheme.onSurface.copy(0.65f)
+    val iconTint       = if (isVideoOverlay) Color.White.copy(0.85f) else MaterialTheme.colorScheme.primary
+    val timeTint       = if (isVideoOverlay) Color.White.copy(0.7f) else MaterialTheme.colorScheme.primary.copy(0.7f)
 
     Column(modifier = modifier) {
         // ── Row: [rewind btn] [track] [forward btn] ────────────────────────
