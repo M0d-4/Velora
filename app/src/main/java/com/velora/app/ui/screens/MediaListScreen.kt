@@ -204,7 +204,7 @@ fun MediaListScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         tabs.forEach { tab ->
-                            FilterChip(tab, state.filterTab == tab) {
+                            FilterChip(tab, state.filterTab == tab, Modifier.weight(1f)) {
                                 onFilterChange(tab)
                                 scope.launch { pagerState.scrollToPage(tabs.indexOf(tab)) }
                             }
@@ -605,7 +605,7 @@ private fun PlaylistRow(playlist: Playlist, mediaList: List<MediaItem>, onPlay: 
 
 // ── Filter chip ────────────────────────────────────────────────────────────────
 @Composable
-private fun FilterChip(tab: FilterTab, selected: Boolean, onClick: () -> Unit) {
+private fun FilterChip(tab: FilterTab, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val label = when (tab) { FilterTab.ALL -> "All"; FilterTab.AUDIO -> "Audio"; FilterTab.VIDEO -> "Video"; FilterTab.PLAYLISTS -> "Playlists" }
     val icon  = when (tab) { FilterTab.ALL -> Icons.Rounded.GridView; FilterTab.AUDIO -> Icons.Rounded.MusicNote; FilterTab.VIDEO -> Icons.Rounded.Videocam; FilterTab.PLAYLISTS -> Icons.Rounded.PlaylistPlay }
 
@@ -637,8 +637,7 @@ private fun FilterChip(tab: FilterTab, selected: Boolean, onClick: () -> Unit) {
     }
 
     Box(
-        modifier = Modifier
-            .weight(1f)
+        modifier = modifier
             .clip(RoundedCornerShape(14.dp))
             .then(
                 if (selected) Modifier.background(selectedBg)
