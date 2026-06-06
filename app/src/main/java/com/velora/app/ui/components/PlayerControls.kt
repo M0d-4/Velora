@@ -115,6 +115,9 @@ fun SkipAndHeartPill(
     onSkipSecondsChange: (Int) -> Unit,
     onFavouriteToggle: () -> Unit
 ) {
+    val useWhiteIcons = LocalUseWhiteIcons.current
+    val iconColor    = if (useWhiteIcons) Color.White else MaterialTheme.colorScheme.primary
+    val iconColorDim = if (useWhiteIcons) Color.White.copy(0.5f) else MaterialTheme.colorScheme.primary.copy(0.5f)
     val options = listOf(5, 10)
     val heartScale = remember { Animatable(1f) }
     val splashScale = remember { Animatable(0f) }
@@ -156,7 +159,7 @@ fun SkipAndHeartPill(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = bgAlpha), RoundedCornerShape(999.dp))
+                        .background(iconColor.copy(alpha = bgAlpha), RoundedCornerShape(999.dp))
                         .pointerInput(secs) { detectTapGestures { onSkipSecondsChange(secs) } }
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                         .graphicsLayer { scaleX = textScale; scaleY = textScale },
@@ -227,6 +230,8 @@ fun SkipAndHeartPill(
 // ── Animated play/pause button ────────────────────────────────────────────────
 @Composable
 fun AnimatedPlayPauseButton(isPlaying: Boolean, onClick: () -> Unit) {
+    val useWhiteIcons = LocalUseWhiteIcons.current
+    val iconColor = if (useWhiteIcons) Color.White else MaterialTheme.colorScheme.primary
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
