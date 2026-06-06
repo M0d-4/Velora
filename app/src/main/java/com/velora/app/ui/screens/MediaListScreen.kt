@@ -203,13 +203,13 @@ fun MediaListScreen(
                     }
                 }
                 Spacer(Modifier.height(8.dp))
-                // Bottom row: [Library text + action buttons] on left, [Settings] on right
+                // Bottom row: Library text on left, action buttons + settings on right
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Left side: Library title + import zip + new playlist (+ merge if playlists tab)
+                    // Left side: Library title (+ merge if playlists tab)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -220,8 +220,13 @@ fun MediaListScreen(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
                         )
-                        Spacer(Modifier.width(4.dp))
-                        // Merge only visible in playlists tab
+
+                    }
+                    // Right side: Merge (playlists tab only) + New Playlist + Import ZIP + Settings
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         if (state.filterTab == FilterTab.PLAYLISTS) {
                             LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                                 IconButton(onClick = { showMergeDialog = true }) {
@@ -251,15 +256,14 @@ fun MediaListScreen(
                                 )
                             }
                         }
-                    }
-                    // Right side: Settings button at same height as Library text
-                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
-                        IconButton(onClick = onSettingsClick) {
-                            Icon(
-                                Icons.Rounded.Settings, "Settings",
-                                tint = MaterialTheme.colorScheme.onSurface.copy(0.7f),
-                                modifier = Modifier.size(22.dp)
-                            )
+                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                            IconButton(onClick = onSettingsClick) {
+                                Icon(
+                                    Icons.Rounded.Settings, "Settings",
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(0.7f),
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
                         }
                     }
                 }

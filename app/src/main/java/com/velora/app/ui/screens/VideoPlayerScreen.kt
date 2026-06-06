@@ -276,8 +276,12 @@ private fun VideoControlsPortrait(
                         tint = if (canSkip) Color.White.copy(0.95f) else Color.White.copy(0.25f))
                 }
             }
-            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.32f, modifier = Modifier.size(84.dp)) {
-                IconButton(onPlayPause, Modifier.fillMaxSize()) {
+            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.32f,
+                modifier = Modifier
+                    .size(84.dp)
+                    .pointerInput(Unit) { detectTapGestures(onTap = { onPlayPause() }) }
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     AnimatedContent(state.isPlaying, label = "vpp") { playing ->
                         Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                             null, Modifier.size(46.dp), tint = Color.White)
@@ -433,8 +437,12 @@ private fun VideoControlsLandscape(
                         tint = if (canSkip) Color.White.copy(0.95f) else Color.White.copy(0.25f))
                 }
             }
-            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.32f, modifier = Modifier.size(72.dp)) {
-                IconButton(onPlayPause, Modifier.fillMaxSize()) {
+            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.32f,
+                modifier = Modifier
+                    .size(72.dp)
+                    .pointerInput(Unit) { detectTapGestures(onTap = { onPlayPause() }) }
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     AnimatedContent(state.isPlaying, label = "vpp_ls") { playing ->
                         Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                             null, Modifier.size(38.dp), tint = Color.White)
@@ -491,7 +499,7 @@ private fun VideoControlsLandscape(
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
                     Icon(Icons.Rounded.Lyrics, null, Modifier.size(13.dp), tint = Color.White.copy(0.7f))
                     Spacer(Modifier.width(3.dp))
-                    Text(if (hasLyrics) "Change" else "Lyrics",
+                    Text(if (hasLyrics) "Change lyrics" else "Import lyrics",
                         fontSize = 10.sp, color = Color.White.copy(0.7f))
                 }
                 if (hasLyrics) {

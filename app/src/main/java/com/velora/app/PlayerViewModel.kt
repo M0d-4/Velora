@@ -411,8 +411,21 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(isQueueMode = false, queue = emptyList(), currentPlaylistId = null) }
         }
     }
-    fun playNext() = advanceQueue(true)
-    fun playPrev() = advanceQueue(false)
+    fun playNext() {
+        val s = _state.value
+        if (!s.isQueueMode) {
+            // Auto-enter queue mode then advance
+            toggleQueueMode()
+        }
+        advanceQueue(true)
+    }
+    fun playPrev() {
+        val s = _state.value
+        if (!s.isQueueMode) {
+            toggleQueueMode()
+        }
+        advanceQueue(false)
+    }
 
     /**
      * Advance the queue forward or backward.

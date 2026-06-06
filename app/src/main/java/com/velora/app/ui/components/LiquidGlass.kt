@@ -53,19 +53,32 @@ fun LiquidGlassSurface(
                           else        Color.White.copy(alpha = 0.55f)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // API 31+: true background blur via RenderEffect
-            Box(
-                modifier = modifier
-                    .clip(shape)
-                    .graphicsLayer {
-                        renderEffect = android.graphics.RenderEffect
-                            .createBlurEffect(40f, 40f, android.graphics.Shader.TileMode.CLAMP)
-                            .asComposeRenderEffect()
-                    }
-                    .background(panelColor)
-                    .border(width = 0.8.dp, color = borderColor, shape = shape),
-                content = content
-            )
+            // API 31+: two-layer frosted glass.
+            // Layer 1 (behind): background blur effect via RenderEffect.
+            // Layer 2 (front): tinted panel + border + content — not blurred.
+            Box(modifier = modifier.clip(shape)) {
+                // Blur layer — blurs this layer's pixels (which shows what's behind the Box),
+                // clipped to the rounded shape so blur stays inside the panel.
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clip(shape)
+                        .graphicsLayer {
+                            renderEffect = android.graphics.RenderEffect
+                                .createBlurEffect(30f, 30f, android.graphics.Shader.TileMode.CLAMP)
+                                .asComposeRenderEffect()
+                        }
+                )
+                // Tinted overlay + border + content on top — intentionally not inside
+                // the graphicsLayer above so content text/icons stay perfectly sharp.
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(panelColor)
+                        .border(width = 0.8.dp, color = borderColor, shape = shape),
+                    content = content
+                )
+            }
         } else {
             // Below API 31: plain tinted panel (no blur available without NDK)
             Box(

@@ -220,7 +220,29 @@ fun VeloraApp(
                 .background(MaterialTheme.colorScheme.background)
             ) {
                 // ── Main content ──────────────────────────────────────────────
-                when (currentScreen) {
+                AnimatedContent(
+                    targetState = currentScreen,
+                    transitionSpec = {
+                        when {
+                            // Library -> Player: slide up
+                            initialState == Screen.LIBRARY && targetState == Screen.PLAYER ->
+                                slideInVertically(tween(380, easing = FastOutSlowInEasing)) { it } +
+                                    fadeIn(tween(280)) togetherWith
+                                slideOutVertically(tween(280)) { -it / 4 } + fadeOut(tween(200))
+                            // Player -> Library: slide down
+                            initialState == Screen.PLAYER && targetState == Screen.LIBRARY ->
+                                slideInVertically(tween(320, easing = FastOutSlowInEasing)) { -it / 4 } +
+                                    fadeIn(tween(220)) togetherWith
+                                slideOutVertically(tween(380, easing = FastOutSlowInEasing)) { it } +
+                                    fadeOut(tween(280))
+                            else ->
+                                fadeIn(tween(280)) togetherWith fadeOut(tween(220))
+                        }
+                    },
+                    label = "screenTransition",
+                    modifier = Modifier.fillMaxSize()
+                ) { screen ->
+                when (screen) {
                     Screen.LIBRARY -> {
                         if (hasPermission) {
                             MediaListScreen(
@@ -334,12 +356,25 @@ fun VeloraApp(
                         )
                     }
                 }
+                } // end AnimatedContent
 
                 // ── Settings overlay ──────────────────────────────────────────
-                if (showSettings) {
-                    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { /* consume */ })
-                    Box(Modifier.fillMaxSize()) {
+                AnimatedVisibility(
+                    visible = showSettings,
+                    enter = slideInVertically(
+                        animationSpec = tween(340, easing = FastOutSlowInEasing)
+                    ) { it } + fadeIn(tween(200)),
+                    exit = slideOutVertically(
+                        animationSpec = tween(280, easing = FastOutSlowInEasing)
+                    ) { it } + fadeOut(tween(180)),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Single Box — no blocking clickable that could swallow close-button taps
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background)
+                    ) {
                         SettingsScreen(
                             useMaterialYou = useMaterialYou,
                             onMaterialYouToggle = onMaterialYouToggle,
