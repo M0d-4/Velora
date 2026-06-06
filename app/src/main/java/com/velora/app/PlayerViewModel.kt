@@ -62,7 +62,9 @@ data class PlayerState(
     // Non-null when item belongs to >1 playlist and user presses next/prev
     val pendingPlaylistChoice: List<Playlist>? = null,
     // IDs of items hidden from the library
-    val hiddenItemIds: Set<Long> = emptySet()
+    val hiddenItemIds: Set<Long> = emptySet(),
+    // Whether lyrics are centered and highlighted (active line bigger)
+    val centerLyrics: Boolean = true
 )
 
 enum class FilterTab { ALL, AUDIO, VIDEO, PLAYLISTS }
@@ -130,7 +132,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             try { val a = JSONArray(hiddenJson); for (i in 0 until a.length()) hiddenIds.add(a.getLong(i)) }
             catch (_: Exception) {}
         }
-        _state.update { it.copy(playlists = playlists, extraMediaList = extraMedia, hiddenItemIds = hiddenIds) }
+        _state.update { it.copy(playlists = playlists, extraMediaList = extraMedia, hiddenItemIds = hiddenIds,
+            centerLyrics = p.getBoolean("center_lyrics", true)) }
     }
 
     private fun persistData() {
@@ -367,6 +370,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     // ── Queue / Shuffle ────────────────────────────────────────────────────────
 
     fun toggleShuffle() { _state.update { it.copy(isShuffle = !it.isShuffle) } }
+    fun toggleCenterLyrics() {
+        val newVal = !_state.value.centerLyrics
+        _state.update { it.copy(centerLyrics = newVal) }
+        prefs().edit().putBoolean("center_lyrics", newVal).apply()
+    }
     fun stopPlayback() {
         controller?.stop()
         _state.update { it.copy(currentItem = null, isPlaying = false, positionMs = 0L, durationMs = 0L,
@@ -422,22 +430,28 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         } else {
-            _state.update { it.copy(isQueueMode = false, queue = emptyList(), currentPlaylistId = null) }
+            _state.update { it.copy(isQueueMode = false, queue = emptyList()) }
         }
     }
     fun playNext() {
         val s = _state.value
         // Only allow skipping within an actual playlist context
         if (s.currentPlaylistId == null) return
+        // Ensure queue mode is on before advancing
         if (!s.isQueueMode) toggleQueueMode()
-        advanceQueue(true)
+        // Re-read state after potential queue mode toggle, then advance
+        val afterToggle = _state.value
+        if (afterToggle.isQueueMode) advanceQueue(true)
     }
     fun playPrev() {
         val s = _state.value
         // Only allow skipping within an actual playlist context
         if (s.currentPlaylistId == null) return
+        // Ensure queue mode is on before advancing
         if (!s.isQueueMode) toggleQueueMode()
-        advanceQueue(false)
+        // Re-read state after potential queue mode toggle, then advance
+        val afterToggle = _state.value
+        if (afterToggle.isQueueMode) advanceQueue(false)
     }
 
     /**

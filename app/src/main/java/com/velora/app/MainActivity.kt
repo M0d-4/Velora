@@ -71,6 +71,7 @@ class MainActivity : ComponentActivity() {
             var useMaterialYou by remember { mutableStateOf(prefs.getBoolean("material_you", true)) }
             var usePixelUi by remember { mutableStateOf(prefs.getBoolean("pixel_ui", false)) }
             var useFrostedBlur by remember { mutableStateOf(prefs.getBoolean("frosted_blur", false)) }
+            var centerLyrics by remember { mutableStateOf(prefs.getBoolean("center_lyrics", true)) }
             VeloraTheme(useMaterialYou = useMaterialYou) {
                 VeloraApp(
                     viewModel = viewModel,
@@ -88,6 +89,11 @@ class MainActivity : ComponentActivity() {
                     onFrostedBlurToggle = { enabled ->
                         useFrostedBlur = enabled
                         prefs.edit().putBoolean("frosted_blur", enabled).apply()
+                    },
+                    centerLyrics = centerLyrics,
+                    onCenterLyricsToggle = { enabled ->
+                        centerLyrics = enabled
+                        viewModel.toggleCenterLyrics()
                     }
                 )
             }
@@ -104,7 +110,9 @@ fun VeloraApp(
     usePixelUi: Boolean = false,
     onPixelUiToggle: (Boolean) -> Unit = {},
     useFrostedBlur: Boolean = false,
-    onFrostedBlurToggle: (Boolean) -> Unit = {}
+    onFrostedBlurToggle: (Boolean) -> Unit = {},
+    centerLyrics: Boolean = true,
+    onCenterLyricsToggle: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
@@ -339,6 +347,8 @@ fun VeloraApp(
                             onPixelUiToggle = onPixelUiToggle,
                             useFrostedBlur = useFrostedBlur,
                             onFrostedBlurToggle = onFrostedBlurToggle,
+                            centerLyrics = centerLyrics,
+                            onCenterLyricsToggle = onCenterLyricsToggle,
                             onBack = { showSettings = false }
                         )
                     }
@@ -389,6 +399,8 @@ fun VeloraApp(
                             onPixelUiToggle = onPixelUiToggle,
                             useFrostedBlur = useFrostedBlur,
                             onFrostedBlurToggle = onFrostedBlurToggle,
+                            centerLyrics = centerLyrics,
+                            onCenterLyricsToggle = onCenterLyricsToggle,
                             onBack = { showSettings = false }
                         )
                     }

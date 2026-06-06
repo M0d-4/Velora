@@ -189,16 +189,24 @@ fun MediaListScreen(
                 .padding(bottom = 8.dp, top = 12.dp, start = 16.dp, end = 16.dp)
         ) {
             Column {
-                // Top row: filter chips only (full width)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                // Top row: filter chips in a floating squircle bar
+                LiquidGlassSurface(
+                    cornerRadius = 24.dp,
+                    alpha = 0.18f,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    tabs.forEach { tab ->
-                        FilterChip(tab, state.filterTab == tab) {
-                            onFilterChange(tab)
-                            scope.launch { pagerState.scrollToPage(tabs.indexOf(tab)) }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        tabs.forEach { tab ->
+                            FilterChip(tab, state.filterTab == tab) {
+                                onFilterChange(tab)
+                                scope.launch { pagerState.scrollToPage(tabs.indexOf(tab)) }
+                            }
                         }
                     }
                 }
@@ -232,7 +240,7 @@ fun MediaListScreen(
                                 IconButton(onClick = { showMergeDialog = true }) {
                                     Icon(
                                         Icons.Rounded.MergeType, "Merge",
-                                        tint = MaterialTheme.colorScheme.secondary,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -260,7 +268,7 @@ fun MediaListScreen(
                             IconButton(onClick = onSettingsClick) {
                                 Icon(
                                     Icons.Rounded.Settings, "Settings",
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(0.7f),
+                                    tint = MaterialTheme.colorScheme.secondary,
                                     modifier = Modifier.size(22.dp)
                                 )
                             }
@@ -599,11 +607,18 @@ private fun PlaylistRow(playlist: Playlist, mediaList: List<MediaItem>, onPlay: 
 private fun FilterChip(tab: FilterTab, selected: Boolean, onClick: () -> Unit) {
     val label = when (tab) { FilterTab.ALL -> "All"; FilterTab.AUDIO -> "Audio"; FilterTab.VIDEO -> "Video"; FilterTab.PLAYLISTS -> "Playlists" }
     val icon  = when (tab) { FilterTab.ALL -> Icons.Rounded.GridView; FilterTab.AUDIO -> Icons.Rounded.MusicNote; FilterTab.VIDEO -> Icons.Rounded.Videocam; FilterTab.PLAYLISTS -> Icons.Rounded.PlaylistPlay }
-    LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (selected) 0.3f else 0.1f, modifier = Modifier.clickable(onClick = onClick)) {
-        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            Icon(icon, null, modifier = Modifier.size(15.dp), tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.6f))
-            Text(label, fontSize = 12.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.7f))
+    val tint  = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.6f)
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Icon(icon, null, modifier = Modifier.size(18.dp), tint = tint)
+            Text(label, fontSize = 10.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = tint)
         }
     }
 }

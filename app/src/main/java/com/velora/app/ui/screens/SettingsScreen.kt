@@ -36,6 +36,8 @@ fun SettingsScreen(
     onPixelUiToggle: (Boolean) -> Unit = {},
     useFrostedBlur: Boolean = false,
     onFrostedBlurToggle: (Boolean) -> Unit = {},
+    centerLyrics: Boolean = true,
+    onCenterLyricsToggle: (Boolean) -> Unit = {},
     onBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -108,6 +110,21 @@ fun SettingsScreen(
                         checked  = useFrostedBlur,
                         enabled  = frostedBlurEnabled,
                         onCheckedChange = { if (frostedBlurEnabled) onFrostedBlurToggle(it) }
+                    )
+                }
+            }
+
+            // ── Lyrics ────────────────────────────────────────────────────
+            SettingsSectionHeader("Lyrics")
+            LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.14f, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    DraggableToggleRow(
+                        icon     = Icons.Rounded.Lyrics,
+                        title    = "Center & Highlight",
+                        subtitle = if (centerLyrics) "Active lyric centered and enlarged"
+                                   else "All lyrics shown at equal size, no auto-scroll",
+                        checked  = centerLyrics,
+                        onCheckedChange = { onCenterLyricsToggle(it) }
                     )
                 }
             }

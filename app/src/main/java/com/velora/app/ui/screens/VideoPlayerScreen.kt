@@ -56,6 +56,7 @@ fun VideoPlayerScreen(
     val item = state.currentItem ?: return
     val hasLyrics = state.lyrics.isNotEmpty()
     val canSkip = state.isQueueMode && state.currentPlaylistId != null && state.queue.size > 1
+    val isPlaylistContext = state.currentPlaylistId != null
 
     var controlsVisible by remember { mutableStateOf(true) }
     var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -169,7 +170,7 @@ fun VideoPlayerScreen(
                     onRemoveLyrics = { onRemoveLyrics(); interact() },
                     onFavouriteToggle = { onFavouriteToggle(); interact() },
                     onShuffleToggle = { onShuffleToggle(); interact() },
-                    onQueueToggle = { onQueueToggle(); interact() },
+                    onQueueToggle = { if (isPlaylistContext) { onQueueToggle(); interact() } },
                     onSpeedChange = { onSpeedChange(it); interact() },
                     onPlayNext = { onPlayNext(); interact() },
                     onPlayPrev = { onPlayPrev(); interact() },
@@ -190,7 +191,7 @@ fun VideoPlayerScreen(
                     onRemoveLyrics = { onRemoveLyrics(); interact() },
                     onFavouriteToggle = { onFavouriteToggle(); interact() },
                     onShuffleToggle = { onShuffleToggle(); interact() },
-                    onQueueToggle = { onQueueToggle(); interact() },
+                    onQueueToggle = { if (isPlaylistContext) { onQueueToggle(); interact() } },
                     onSpeedChange = { onSpeedChange(it); interact() },
                     onPlayNext = { onPlayNext(); interact() },
                     onPlayPrev = { onPlayPrev(); interact() },

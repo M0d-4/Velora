@@ -33,7 +33,8 @@ fun LyricsOverlay(
     modifier: Modifier = Modifier,
     singleLine: Boolean = false,
     slideDirection: LyricsSlideDirection = LyricsSlideDirection.LEFT_TO_RIGHT,
-    textColor: Color = Color.Unspecified   // pass Color.White for video overlays
+    textColor: Color = Color.Unspecified,   // pass Color.White for video overlays
+    centerAndHighlight: Boolean = true      // if false: plain list, no centering scroll or size change
 ) {
     if (lyrics.isEmpty()) return
 
@@ -74,19 +75,16 @@ fun LyricsOverlay(
 
         // Scroll so the active lyric line appears centered in the visible area
         LaunchedEffect(activeIndex) {
-            if (activeIndex >= 0) {
+            if (activeIndex >= 0 && centerAndHighlight) {
                 val visibleInfo = listState.layoutInfo
                 val viewportHeight = visibleInfo.viewportEndOffset - visibleInfo.viewportStartOffset
                 val itemInfo = visibleInfo.visibleItemsInfo.firstOrNull { it.index == activeIndex }
                 if (itemInfo != null) {
-                    // Item already visible — scroll so it's centered
-                    val offset = itemInfo.offset - (viewportHeight / 2) + (itemInfo.size / 2)
                     listState.animateScrollToItem(
                         index = activeIndex,
                         scrollOffset = -(viewportHeight / 2 - itemInfo.size / 2)
                     )
                 } else {
-                    // Item not yet visible — jump to it with centering offset
                     listState.animateScrollToItem(
                         index = activeIndex,
                         scrollOffset = -viewportHeight / 2
@@ -106,26 +104,23 @@ fun LyricsOverlay(
                 val isActive = index == activeIndex
                 val distance = kotlin.math.abs(index - activeIndex)
 
-                val textAlpha = when {
+                val textAlpha = if (centerAndHighlight) when {
                     isActive      -> 1f
                     distance == 1 -> 0.55f
                     distance == 2 -> 0.35f
                     else          -> 0.2f
-                }
-                val fontSize   = if (isActive) 18.sp else 15.sp
-                val fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal
+                } else 0.75f
+                val fontSize   = if (centerAndHighlight && isActive) 18.sp else 15.sp
+                val fontWeight = if (centerAndHighlight && isActive) FontWeight.SemiBold else FontWeight.Normal
                 val baseColor  = if (textColor == Color.Unspecified)
                     MaterialTheme.colorScheme.onSurface else textColor
 
-                // No per-item AnimatedContent — the LazyColumn scroll provides motion.
-                // slideDirection is intentionally unused here; the list scrolls vertically
-                // and the LEFT_TO_RIGHT direction is conveyed by the active-highlight only.
                 Text(
                     text = line.text,
                     color = baseColor.copy(alpha = textAlpha),
                     fontSize = fontSize,
                     fontWeight = fontWeight,
-                    textAlign = TextAlign.Center,
+                    textAlign = TextAlign.Start,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
