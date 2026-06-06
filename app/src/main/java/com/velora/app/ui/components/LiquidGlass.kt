@@ -65,18 +65,29 @@ fun LiquidGlassSurface(
 
     // ── Pixel UI mode ─────────────────────────────────────────────────────────
     if (usePixelUi) {
-        // Flat Google Pixel style: solid surface colour with a very subtle primary tint.
-        // No border, no glow, no glass effect — matches Material You / Pixel launcher aesthetic.
+        // Pixel UI: vibrant Material surface with dynamic color accent
         val shape = RoundedCornerShape(cornerRadius)
-        val surface = MaterialTheme.colorScheme.surfaceVariant
         val primary = MaterialTheme.colorScheme.primary
-        // Higher alpha = slightly more tinted, but always fully opaque
-        val tintStrength = (alpha * 0.55f).coerceIn(0.04f, 0.28f)
-        val bg = lerp(surface, primary, tintStrength)
+        val secondary = MaterialTheme.colorScheme.secondary
+        val tertiary = MaterialTheme.colorScheme.tertiary
+        // Cycle tint between primary / secondary / tertiary based on alpha tier
+        val accentColor = when {
+            alpha > 0.28f -> primary.copy(alpha = (alpha * 0.7f).coerceAtMost(1f))
+            alpha > 0.18f -> secondary.copy(alpha = (alpha * 0.65f).coerceAtMost(1f))
+            else -> tertiary.copy(alpha = (alpha * 0.55f).coerceAtMost(1f))
+        }
         Box(
             modifier = modifier
                 .clip(shape)
-                .background(bg, shape),
+                .background(
+                    androidx.compose.ui.graphics.Brush.linearGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = (alpha + 0.05f).coerceAtMost(1f)),
+                            accentColor
+                        )
+                    ),
+                    shape
+                ),
             content = content
         )
         return
