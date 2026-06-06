@@ -49,6 +49,9 @@ fun PlayerControls(
     onQueueToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val useWhiteIcons = LocalUseWhiteIcons.current
+    val iconColor    = if (useWhiteIcons) Color.White else MaterialTheme.colorScheme.primary
+    val iconColorDim = if (useWhiteIcons) Color.White.copy(0.5f) else MaterialTheme.colorScheme.primary.copy(0.5f)
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -63,8 +66,8 @@ fun PlayerControls(
                 size = 42.dp
             ) {
                 Icon(Icons.Rounded.Shuffle, "Shuffle", modifier = Modifier.size(18.dp),
-                    tint = if (isShuffle) MaterialTheme.colorScheme.primary
-                           else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                    tint = if (isShuffle) iconColor
+                           else iconColorDim)
             }
 
             val queueInteraction = remember { MutableInteractionSource() }
@@ -82,11 +85,11 @@ fun PlayerControls(
                     horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     Icon(Icons.Rounded.QueueMusic, null, modifier = Modifier.size(16.dp),
-                        tint = if (isQueueMode) MaterialTheme.colorScheme.primary
-                               else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                        tint = if (isQueueMode) iconColor
+                               else iconColorDim)
                     Text(if (isQueueMode) "Queue On" else "Play Next", fontSize = 12.sp,
-                        color = if (isQueueMode) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.primary.copy(alpha = 0.55f))
+                        color = if (isQueueMode) iconColor
+                                else iconColorDim)
                 }
             }
         }
@@ -161,8 +164,8 @@ fun SkipAndHeartPill(
                 ) {
                     Text("${secs}s", fontSize = 13.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.primary.copy(alpha = 0.55f))
+                        color = if (isSelected) iconColor
+                                else iconColorDim)
                 }
             }
 
@@ -247,7 +250,7 @@ fun AnimatedPlayPauseButton(isPlaying: Boolean, onClick: () -> Unit) {
                 Icon(
                     if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     null, modifier = Modifier.size(38.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = iconColor
                 )
             }
         }
@@ -288,6 +291,8 @@ fun SkipButton(
     desc: String,
     onClick: () -> Unit
 ) {
+    val useWhiteIcons = LocalUseWhiteIcons.current
+    val iconColor = if (useWhiteIcons) Color.White else MaterialTheme.colorScheme.primary
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -312,7 +317,7 @@ fun SkipButton(
         ) {
             Icon(icon, desc,
                 modifier = Modifier.size(26.dp),
-                tint = MaterialTheme.colorScheme.primary)
+                tint = iconColor)
         }
     }
 }

@@ -247,6 +247,11 @@ private fun AudioPlayerPortrait(
     val canSkip = state.isQueueMode && state.currentPlaylistId != null && state.queue.size > 1
     val isPlaylistContext = state.currentPlaylistId != null
 
+    val useWhiteIcons = com.velora.app.ui.components.LocalUseWhiteIcons.current
+    val iconColor    = if (useWhiteIcons) Color.White else MaterialTheme.colorScheme.primary
+    val iconColorDim = if (useWhiteIcons) Color.White.copy(0.5f) else MaterialTheme.colorScheme.primary.copy(0.5f)
+    val iconColorMid = if (useWhiteIcons) Color.White.copy(0.75f) else MaterialTheme.colorScheme.primary.copy(0.75f)
+
     var speedExpanded by remember { mutableStateOf(false) }
     var prevItemId by remember { mutableLongStateOf(item.id) }
     var enterFromRight by remember { mutableStateOf(true) }
@@ -255,10 +260,7 @@ private fun AudioPlayerPortrait(
     val (dominantColor, secondaryColor) = rememberCoverArtColors(item)
 
     Box(modifier = modifier.fillMaxSize()) {
-        // Background sits behind all controls; tap on it dismisses the speed panel
-        Box(Modifier.fillMaxSize().pointerInput(speedExpanded) {
-            detectTapGestures { if (speedExpanded) speedExpanded = false }
-        }) { AnimatedBackground(dominantColor = dominantColor, secondaryColor = secondaryColor) }
+        AnimatedBackground(dominantColor = dominantColor, secondaryColor = secondaryColor)
         Column(
             modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
                 .padding(horizontal = 24.dp),
@@ -273,13 +275,13 @@ private fun AudioPlayerPortrait(
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onBack) {
                             Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.primary.copy(0.75f))
+                                tint = iconColorMid)
                         }
                     }
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onClose) {
                             Icon(Icons.Rounded.Close, "Close", Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.primary.copy(0.75f))
+                                tint = iconColorMid)
                         }
                     }
                 }
@@ -291,7 +293,7 @@ private fun AudioPlayerPortrait(
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onRotate) {
                             Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.primary.copy(0.75f))
+                                tint = iconColorMid)
                         }
                     }
                 }
@@ -329,7 +331,7 @@ private fun AudioPlayerPortrait(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 AnimatedIconButton(onClick = onShuffleToggle, active = state.isShuffle, cornerRadius = 20.dp, size = 42.dp) {
                     Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(18.dp),
-                        tint = if (state.isShuffle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(0.5f))
+                        tint = if (state.isShuffle) iconColor else iconColorDim)
                 }
                 LiquidGlassSurface(cornerRadius = 20.dp, alpha = if (state.isQueueMode) 0.32f else if (!isPlaylistContext) 0.05f else 0.12f,
                     modifier = Modifier.height(42.dp).wrapContentWidth()) {
@@ -340,10 +342,10 @@ private fun AudioPlayerPortrait(
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         Icon(Icons.Rounded.QueueMusic, null, Modifier.size(16.dp),
                             tint = if (!isPlaylistContext) MaterialTheme.colorScheme.onSurface.copy(0.25f)
-                                   else if (state.isQueueMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(0.5f))
+                                   else if (state.isQueueMode) iconColor else iconColorDim)
                         Text(if (state.isQueueMode) "Queue On" else "Play Next", fontSize = 12.sp,
                             color = if (!isPlaylistContext) MaterialTheme.colorScheme.onSurface.copy(0.25f)
-                                    else if (state.isQueueMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.6f))
+                                    else if (state.isQueueMode) iconColor else iconColorDim)
                     }
                 }
             }
@@ -352,7 +354,7 @@ private fun AudioPlayerPortrait(
                 LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f, modifier = Modifier.size(50.dp)) {
                     IconButton(onClick = { if (canSkip) onPlayPrev() }, modifier = Modifier.fillMaxSize(), enabled = canSkip) {
                         Icon(Icons.Rounded.SkipPrevious, "Previous", Modifier.size(28.dp),
-                            tint = if (canSkip) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.25f))
+                            tint = if (canSkip) iconColor else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                     }
                 }
                 Spacer(Modifier.width(16.dp))
@@ -361,7 +363,7 @@ private fun AudioPlayerPortrait(
                 LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f, modifier = Modifier.size(50.dp)) {
                     IconButton(onClick = { if (canSkip) onPlayNext() }, modifier = Modifier.fillMaxSize(), enabled = canSkip) {
                         Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(28.dp),
-                            tint = if (canSkip) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.25f))
+                            tint = if (canSkip) iconColor else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                     }
                 }
             }
@@ -370,8 +372,8 @@ private fun AudioPlayerPortrait(
                 LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.13f) {
                     Row(modifier = Modifier.pointerInput(Unit) { detectTapGestures { onImportLyrics() } }.padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Icon(Icons.Rounded.Lyrics, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.primary.copy(0.7f))
-                        Text(if (hasLyrics) "Change" else "Import lyrics", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary.copy(0.7f))
+                        Icon(Icons.Rounded.Lyrics, null, Modifier.size(15.dp), tint = iconColor.copy(0.72f))
+                        Text(if (hasLyrics) "Change" else "Import lyrics", fontSize = 11.sp, color = iconColor.copy(0.72f))
                         if (hasLyrics) {
                             Spacer(Modifier.width(2.dp))
                             Box(modifier = Modifier.size(15.dp).clip(RoundedCornerShape(999.dp))
@@ -417,13 +419,15 @@ private fun AudioPlayerLandscape(
     val hasLyrics = state.lyrics.isNotEmpty()
     val canSkip = state.isQueueMode && state.currentPlaylistId != null && state.queue.size > 1
     val isPlaylistContext = state.currentPlaylistId != null
+    val useWhiteIcons = com.velora.app.ui.components.LocalUseWhiteIcons.current
+    val iconColor    = if (useWhiteIcons) Color.White else MaterialTheme.colorScheme.primary
+    val iconColorDim = if (useWhiteIcons) Color.White.copy(0.5f) else MaterialTheme.colorScheme.primary.copy(0.5f)
+    val iconColorMid = if (useWhiteIcons) Color.White.copy(0.75f) else MaterialTheme.colorScheme.primary.copy(0.75f)
     var speedExpanded by remember { mutableStateOf(false) }
     val (dominantColor, secondaryColor) = rememberCoverArtColors(item)
 
     Box(modifier = modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize().pointerInput(speedExpanded) {
-            detectTapGestures { if (speedExpanded) speedExpanded = false }
-        }) { AnimatedBackground(dominantColor = dominantColor, secondaryColor = secondaryColor) }
+        AnimatedBackground(dominantColor = dominantColor, secondaryColor = secondaryColor)
         // Back + Close pinned to very top-left of the screen
         Row(
             modifier = Modifier
@@ -435,12 +439,12 @@ private fun AudioPlayerLandscape(
         ) {
             LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary.copy(0.75f))
+                    Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(16.dp), tint = iconColorMid)
                 }
             }
             LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                 IconButton(onClick = onClose) {
-                    Icon(Icons.Rounded.Close, "Close", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary.copy(0.75f))
+                    Icon(Icons.Rounded.Close, "Close", Modifier.size(16.dp), tint = iconColorMid)
                 }
             }
         }
@@ -464,7 +468,7 @@ private fun AudioPlayerLandscape(
                         expanded = speedExpanded, onExpandedChange = { speedExpanded = it })
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onRotate) {
-                            Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary.copy(0.75f))
+                            Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(18.dp), tint = iconColorMid)
                         }
                     }
                 }
@@ -478,7 +482,7 @@ private fun AudioPlayerLandscape(
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f, modifier = Modifier.size(42.dp)) {
                         IconButton({ if (canSkip) onPlayPrev() }, Modifier.fillMaxSize(), canSkip) {
                             Icon(Icons.Rounded.SkipPrevious, "Prev", Modifier.size(24.dp),
-                                tint = if (canSkip) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.25f))
+                                tint = if (canSkip) iconColor else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                         }
                     }
                     Spacer(Modifier.width(12.dp))
@@ -487,7 +491,7 @@ private fun AudioPlayerLandscape(
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f, modifier = Modifier.size(42.dp)) {
                         IconButton({ if (canSkip) onPlayNext() }, Modifier.fillMaxSize(), canSkip) {
                             Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(24.dp),
-                                tint = if (canSkip) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.25f))
+                                tint = if (canSkip) iconColor else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                         }
                     }
                 }
@@ -495,7 +499,7 @@ private fun AudioPlayerLandscape(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     AnimatedIconButton(onClick = onShuffleToggle, active = state.isShuffle, cornerRadius = 20.dp, size = 36.dp) {
                         Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(16.dp),
-                            tint = if (state.isShuffle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(0.5f))
+                            tint = if (state.isShuffle) iconColor else iconColorDim)
                     }
                     LiquidGlassSurface(cornerRadius = 20.dp, alpha = if (state.isQueueMode) 0.32f else if (!isPlaylistContext) 0.05f else 0.12f,
                         modifier = Modifier.height(36.dp).wrapContentWidth()) {
@@ -506,18 +510,18 @@ private fun AudioPlayerLandscape(
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Icon(Icons.Rounded.QueueMusic, null, Modifier.size(14.dp),
                                 tint = if (!isPlaylistContext) MaterialTheme.colorScheme.onSurface.copy(0.25f)
-                                       else if (state.isQueueMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(0.5f))
+                                       else if (state.isQueueMode) iconColor else iconColorDim)
                             Text(if (state.isQueueMode) "Queue On" else "Queue", fontSize = 11.sp,
                                 color = if (!isPlaylistContext) MaterialTheme.colorScheme.onSurface.copy(0.25f)
-                                        else if (state.isQueueMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.6f))
+                                        else if (state.isQueueMode) iconColor else iconColorDim)
                         }
                     }
                     Spacer(Modifier.weight(1f))
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.13f) {
                         Row(modifier = Modifier.pointerInput(Unit) { detectTapGestures { onImportLyrics() } }.padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Icon(Icons.Rounded.Lyrics, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary.copy(0.7f))
-                            Text(if (hasLyrics) "Change" else "Import Lyrics", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary.copy(0.7f))
+                            Icon(Icons.Rounded.Lyrics, null, Modifier.size(14.dp), tint = iconColor.copy(0.72f))
+                            Text(if (hasLyrics) "Change" else "Import Lyrics", fontSize = 11.sp, color = iconColor.copy(0.72f))
                             if (hasLyrics) {
                                 Spacer(Modifier.width(2.dp))
                                 Box(modifier = Modifier.size(14.dp).clip(RoundedCornerShape(999.dp))

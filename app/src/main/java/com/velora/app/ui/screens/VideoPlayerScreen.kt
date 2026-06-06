@@ -229,6 +229,9 @@ private fun VideoControlsPortrait(
     onRotate: () -> Unit,
     onBack: () -> Unit = {}
 ) {
+    val useWhiteIcons = com.velora.app.ui.components.LocalUseWhiteIcons.current
+    val iconColor    = if (useWhiteIcons) Color.White else MaterialTheme.colorScheme.primary
+    val iconColorDim = if (useWhiteIcons) Color.White.copy(0.5f) else MaterialTheme.colorScheme.primary.copy(0.45f)
     Box(Modifier.fillMaxSize()) {
         // Top scrim
         Box(Modifier.fillMaxWidth().height(120.dp)
@@ -250,18 +253,18 @@ private fun VideoControlsPortrait(
             verticalAlignment = Alignment.CenterVertically) {
             LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.22f) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(18.dp), tint = iconColor)
                 }
             }
             Spacer(Modifier.width(8.dp))
             Text(item.title, style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold,
+                color = iconColor, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f))
             Spacer(Modifier.width(12.dp))
             LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.22f) {
                 IconButton(onClick = onRotate) {
-                    Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(20.dp), tint = iconColor)
                 }
             }
         }
@@ -274,7 +277,7 @@ private fun VideoControlsPortrait(
                 alpha = if (canSkip) 0.22f else 0.08f, modifier = Modifier.size(52.dp)) {
                 IconButton(onPlayPrev, Modifier.fillMaxSize(), canSkip) {
                     Icon(Icons.Rounded.SkipPrevious, "Prev", Modifier.size(28.dp),
-                        tint = if (canSkip) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.25f))
+                        tint = if (canSkip) iconColor else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                 }
             }
             LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.32f,
@@ -285,7 +288,7 @@ private fun VideoControlsPortrait(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     AnimatedContent(state.isPlaying, label = "vpp") { playing ->
                         Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            null, Modifier.size(46.dp), tint = MaterialTheme.colorScheme.primary)
+                            null, Modifier.size(46.dp), tint = iconColor)
                     }
                 }
             }
@@ -293,7 +296,7 @@ private fun VideoControlsPortrait(
                 alpha = if (canSkip) 0.22f else 0.08f, modifier = Modifier.size(52.dp)) {
                 IconButton(onPlayNext, Modifier.fillMaxSize(), canSkip) {
                     Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(28.dp),
-                        tint = if (canSkip) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.25f))
+                        tint = if (canSkip) iconColor else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                 }
             }
         }
@@ -341,10 +344,10 @@ private fun VideoControlsPortrait(
                 verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onImportLyrics,
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
-                    Icon(Icons.Rounded.Lyrics, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary.copy(0.75f))
+                    Icon(Icons.Rounded.Lyrics, null, Modifier.size(14.dp), tint = iconColor.copy(0.75f))
                     Spacer(Modifier.width(4.dp))
                     Text(if (hasLyrics) "Change lyrics" else "Import lyrics",
-                        fontSize = 11.sp, color = MaterialTheme.colorScheme.primary.copy(0.75f))
+                        fontSize = 11.sp, color = iconColor.copy(0.72f))
                 }
                 if (hasLyrics) {
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.2f, modifier = Modifier.size(30.dp)) {
@@ -358,14 +361,14 @@ private fun VideoControlsPortrait(
                     alpha = if (state.isShuffle) 0.35f else 0.18f, modifier = Modifier.size(34.dp)) {
                     IconButton(onShuffleToggle, Modifier.fillMaxSize()) {
                         Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(15.dp),
-                            tint = if (state.isShuffle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(0.45f))
+                            tint = if (state.isShuffle) iconColor else iconColorDim)
                     }
                 }
                 LiquidGlassSurface(cornerRadius = 999.dp,
                     alpha = if (state.isQueueMode) 0.35f else 0.18f, modifier = Modifier.size(34.dp)) {
                     IconButton(onQueueToggle, Modifier.fillMaxSize()) {
                         Icon(Icons.Rounded.QueueMusic, "Queue", Modifier.size(15.dp),
-                            tint = if (state.isQueueMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(0.45f))
+                            tint = if (state.isQueueMode) iconColor else iconColorDim)
                     }
                 }
                 HeartButton(isFavourite, onFavouriteToggle)
@@ -398,6 +401,9 @@ private fun VideoControlsLandscape(
     isFavourite: Boolean,
     onRotate: () -> Unit
 ) {
+    val useWhiteIcons = com.velora.app.ui.components.LocalUseWhiteIcons.current
+    val iconColor    = if (useWhiteIcons) Color.White else MaterialTheme.colorScheme.primary
+    val iconColorDim = if (useWhiteIcons) Color.White.copy(0.5f) else MaterialTheme.colorScheme.primary.copy(0.45f)
     Box(Modifier.fillMaxSize()) {
         // Scrims
         Box(Modifier.fillMaxWidth().height(90.dp)
@@ -416,13 +422,13 @@ private fun VideoControlsLandscape(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
             Text(item.title, style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold,
+                color = iconColor, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f))
             Spacer(Modifier.width(12.dp))
             LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.22f) {
                 IconButton(onClick = onRotate) {
-                    Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(18.dp), tint = iconColor)
                 }
             }
         }
@@ -435,7 +441,7 @@ private fun VideoControlsLandscape(
                 alpha = if (canSkip) 0.22f else 0.08f, modifier = Modifier.size(44.dp)) {
                 IconButton(onPlayPrev, Modifier.fillMaxSize(), canSkip) {
                     Icon(Icons.Rounded.SkipPrevious, "Prev", Modifier.size(24.dp),
-                        tint = if (canSkip) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.25f))
+                        tint = if (canSkip) iconColor else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                 }
             }
             LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.32f,
@@ -446,7 +452,7 @@ private fun VideoControlsLandscape(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     AnimatedContent(state.isPlaying, label = "vpp_ls") { playing ->
                         Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            null, Modifier.size(38.dp), tint = MaterialTheme.colorScheme.primary)
+                            null, Modifier.size(38.dp), tint = iconColor)
                     }
                 }
             }
@@ -454,7 +460,7 @@ private fun VideoControlsLandscape(
                 alpha = if (canSkip) 0.22f else 0.08f, modifier = Modifier.size(44.dp)) {
                 IconButton(onPlayNext, Modifier.fillMaxSize(), canSkip) {
                     Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(24.dp),
-                        tint = if (canSkip) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(0.25f))
+                        tint = if (canSkip) iconColor else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                 }
             }
         }
@@ -498,10 +504,10 @@ private fun VideoControlsLandscape(
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onImportLyrics,
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
-                    Icon(Icons.Rounded.Lyrics, null, Modifier.size(13.dp), tint = MaterialTheme.colorScheme.primary.copy(0.75f))
+                    Icon(Icons.Rounded.Lyrics, null, Modifier.size(13.dp), tint = iconColor.copy(0.75f))
                     Spacer(Modifier.width(3.dp))
                     Text(if (hasLyrics) "Change lyrics" else "Import lyrics",
-                        fontSize = 10.sp, color = MaterialTheme.colorScheme.primary.copy(0.75f))
+                        fontSize = 10.sp, color = iconColor.copy(0.72f))
                 }
                 if (hasLyrics) {
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.2f, modifier = Modifier.size(28.dp)) {
@@ -514,14 +520,14 @@ private fun VideoControlsLandscape(
                     alpha = if (state.isShuffle) 0.35f else 0.18f, modifier = Modifier.size(30.dp)) {
                     IconButton(onShuffleToggle, Modifier.fillMaxSize()) {
                         Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(14.dp),
-                            tint = if (state.isShuffle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(0.45f))
+                            tint = if (state.isShuffle) iconColor else iconColorDim)
                     }
                 }
                 LiquidGlassSurface(cornerRadius = 999.dp,
                     alpha = if (state.isQueueMode) 0.35f else 0.18f, modifier = Modifier.size(30.dp)) {
                     IconButton(onQueueToggle, Modifier.fillMaxSize()) {
                         Icon(Icons.Rounded.QueueMusic, "Queue", Modifier.size(14.dp),
-                            tint = if (state.isQueueMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(0.45f))
+                            tint = if (state.isQueueMode) iconColor else iconColorDim)
                     }
                 }
                 HeartButton(isFavourite, onFavouriteToggle)
@@ -532,6 +538,9 @@ private fun VideoControlsLandscape(
 
 @Composable
 private fun SkipSecondsPillVideo(current: Int, onChange: (Int) -> Unit) {
+    val useWhiteIcons = com.velora.app.ui.components.LocalUseWhiteIcons.current
+    val iconColor    = if (useWhiteIcons) Color.White else MaterialTheme.colorScheme.primary
+    val iconColorDim = if (useWhiteIcons) Color.White.copy(0.5f) else MaterialTheme.colorScheme.primary.copy(0.45f)
     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.22f, modifier = Modifier.wrapContentWidth()) {
         Row(Modifier.padding(horizontal = 4.dp, vertical = 4.dp)) {
             listOf(5, 10).forEach { secs ->
@@ -543,7 +552,7 @@ private fun SkipSecondsPillVideo(current: Int, onChange: (Int) -> Unit) {
                     .padding(horizontal = 14.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center) {
                     Text("${secs}s", fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        fontSize = 12.sp, color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(0.45f))
+                        fontSize = 12.sp, color = if (isSelected) iconColor else iconColorDim)
                 }
             }
         }

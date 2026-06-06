@@ -16,15 +16,20 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** When true, all LiquidGlass surfaces render as flat Material surfaces (Pixel UI mode). */
+/** When true, all LiquidGlass surfaces render as flat Pixel-style Material surfaces. */
 val LocalUsePixelUi = compositionLocalOf { false }
 
 /** When true, all LiquidGlass surfaces render as frosted-blur panels (Pixel UI must be off). */
 val LocalUseFrostedBlur = compositionLocalOf { false }
 
 /**
+ * When true, player icons/text use Color.White instead of primary colour.
+ * Only affects audio and video player composables that read this local.
+ */
+val LocalUseWhiteIcons = compositionLocalOf { false }
+
+/**
  * Liquid Glass surface — frosted glass look with animated border glow.
- * No shimmer sweep (removed per user request).
  */
 @Composable
 fun LiquidGlassSurface(
@@ -42,20 +47,12 @@ fun LiquidGlassSurface(
     if (useFrostedBlur && !usePixelUi) {
         val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
         val shape = RoundedCornerShape(cornerRadius)
-        // Semi-transparent frosted panel — no .blur() (that blurs content, not background).
-        // On API 31+ we apply a RenderEffect blur via graphicsLayer so only the pixels
-        // drawn *behind* this composable appear blurred; the content on top stays sharp.
         val panelAlpha = if (isDark) (alpha * 2.2f).coerceIn(0.18f, 0.55f)
                          else        (alpha * 2.5f + 0.20f).coerceIn(0.30f, 0.72f)
         val panelColor = if (isDark) Color(0xFF1C1C1E).copy(alpha = panelAlpha)
                          else        Color(0xFFFFFFFF).copy(alpha = panelAlpha)
         val borderColor = if (isDark) Color.White.copy(alpha = 0.18f)
                           else        Color.White.copy(alpha = 0.55f)
-
-        // Frosted glass panel: semi-opaque tinted surface + hairline border.
-        // True background blur requires Window.setBlurBehindRadius (a window-level flag)
-        // which cannot be scoped per-composable. The semi-opaque panel IS the standard
-        // iOS/macOS frosted glass look and matches the reference screenshot.
         Box(
             modifier = modifier
                 .clip(shape)
@@ -68,27 +65,18 @@ fun LiquidGlassSurface(
 
     // ── Pixel UI mode ─────────────────────────────────────────────────────────
     if (usePixelUi) {
-        // Pixel UI: vibrant opaque Material surface — liquid glass is fully disabled.
-        // Restores the original gradient look but with no transparency.
+        // Flat Google Pixel style: solid surface colour with a very subtle primary tint.
+        // No border, no glow, no glass effect — matches Material You / Pixel launcher aesthetic.
         val shape = RoundedCornerShape(cornerRadius)
-        val primary   = MaterialTheme.colorScheme.primary
-        val secondary = MaterialTheme.colorScheme.secondary
-        val tertiary  = MaterialTheme.colorScheme.tertiary
-        val surface   = MaterialTheme.colorScheme.surfaceVariant
-        // Pick accent based on alpha tier (same logic as before) but blend opaquely into surface
-        val accentColor = when {
-            alpha > 0.28f -> androidx.compose.ui.graphics.lerp(surface, primary,   0.30f)
-            alpha > 0.18f -> androidx.compose.ui.graphics.lerp(surface, secondary, 0.22f)
-            else          -> androidx.compose.ui.graphics.lerp(surface, tertiary,  0.16f)
-        }
+        val surface = MaterialTheme.colorScheme.surfaceVariant
+        val primary = MaterialTheme.colorScheme.primary
+        // Higher alpha = slightly more tinted, but always fully opaque
+        val tintStrength = (alpha * 0.55f).coerceIn(0.04f, 0.28f)
+        val bg = lerp(surface, primary, tintStrength)
         Box(
             modifier = modifier
                 .clip(shape)
-                .background(
-                    androidx.compose.ui.graphics.Brush.linearGradient(listOf(surface, accentColor)),
-                    shape
-                )
-                .border(width = 1.dp, color = primary.copy(alpha = 0.20f), shape = shape),
+                .background(bg, shape),
             content = content
         )
         return

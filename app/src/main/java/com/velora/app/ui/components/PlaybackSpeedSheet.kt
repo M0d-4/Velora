@@ -38,6 +38,8 @@ fun PlaybackSpeedControl(
     onExpandedChange: (Boolean) -> Unit,
     isVideoOverlay: Boolean = false
 ) {
+    val useWhiteIcons = LocalUseWhiteIcons.current
+    val iconColor = if (useWhiteIcons) Color.White else MaterialTheme.colorScheme.primary
     AnimatedContent(
         targetState = expanded,
         transitionSpec = {
@@ -67,12 +69,12 @@ fun PlaybackSpeedControl(
                     Icon(
                         Icons.Rounded.Speed, null,
                         modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = iconColor
                     )
                     Text(
                         speedLabel(currentSpeed),
                         fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = iconColor
                     )
                 }
             }
@@ -102,8 +104,7 @@ fun PlaybackSpeedControl(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(999.dp))
                                 .background(
-                                    if (isVideoOverlay) Color.White.copy(bgAlpha)
-                                    else MaterialTheme.colorScheme.primary.copy(alpha = bgAlpha),
+                                    iconColor.copy(alpha = bgAlpha),
                                     RoundedCornerShape(999.dp)
                                 )
                                 .clickable(interactionSource = interaction, indication = null) {
@@ -118,9 +119,7 @@ fun PlaybackSpeedControl(
                                 speedLabel(speed), fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 color = when {
-                                    isSelected && isVideoOverlay -> Color.White
-                                    isSelected -> MaterialTheme.colorScheme.primary
-                                    isVideoOverlay -> Color.White.copy(0.6f)
+                                    isSelected -> iconColor
                                     else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                                 }
                             )

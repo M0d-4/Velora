@@ -38,6 +38,8 @@ fun SettingsScreen(
     onFrostedBlurToggle: (Boolean) -> Unit = {},
     centerLyrics: Boolean = true,
     onCenterLyricsToggle: (Boolean) -> Unit = {},
+    useWhiteIcons: Boolean = false,
+    onWhiteIconsToggle: (Boolean) -> Unit = {},
     onBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -125,6 +127,20 @@ fun SettingsScreen(
                                    else "All lyrics shown at equal size, no auto-scroll",
                         checked  = centerLyrics,
                         onCheckedChange = { onCenterLyricsToggle(it) }
+                    )
+                }
+            }
+
+            // ── Player ────────────────────────────────────────────────────
+            SettingsSectionHeader("Player")
+            LiquidGlassSurface(cornerRadius = 20.dp, alpha = 0.14f, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    DraggableToggleRow(
+                        icon     = Icons.Rounded.Brightness7,
+                        title    = "White Icons",
+                        subtitle = "Use white instead of accent colour for player icons and text",
+                        checked  = useWhiteIcons,
+                        onCheckedChange = { onWhiteIconsToggle(it) }
                     )
                 }
             }

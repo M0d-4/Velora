@@ -43,6 +43,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.velora.app.ui.components.LiquidGlassSurface
 import com.velora.app.ui.components.LocalUsePixelUi
 import com.velora.app.ui.components.LocalUseFrostedBlur
+import com.velora.app.ui.components.LocalUseWhiteIcons
 import com.velora.app.ui.components.liquidPressEffect
 import com.velora.app.ui.components.bouncePressEffect
 import com.velora.app.ui.screens.*
@@ -72,6 +73,7 @@ class MainActivity : ComponentActivity() {
             var usePixelUi by remember { mutableStateOf(prefs.getBoolean("pixel_ui", false)) }
             var useFrostedBlur by remember { mutableStateOf(prefs.getBoolean("frosted_blur", false)) }
             var centerLyrics by remember { mutableStateOf(prefs.getBoolean("center_lyrics", true)) }
+            var useWhiteIcons by remember { mutableStateOf(prefs.getBoolean("white_icons", false)) }
             VeloraTheme(useMaterialYou = useMaterialYou) {
                 VeloraApp(
                     viewModel = viewModel,
@@ -94,6 +96,11 @@ class MainActivity : ComponentActivity() {
                     onCenterLyricsToggle = { enabled ->
                         centerLyrics = enabled
                         viewModel.toggleCenterLyrics()
+                    },
+                    useWhiteIcons = useWhiteIcons,
+                    onWhiteIconsToggle = { enabled ->
+                        useWhiteIcons = enabled
+                        prefs.edit().putBoolean("white_icons", enabled).apply()
                     }
                 )
             }
@@ -112,7 +119,9 @@ fun VeloraApp(
     useFrostedBlur: Boolean = false,
     onFrostedBlurToggle: (Boolean) -> Unit = {},
     centerLyrics: Boolean = true,
-    onCenterLyricsToggle: (Boolean) -> Unit = {}
+    onCenterLyricsToggle: (Boolean) -> Unit = {},
+    useWhiteIcons: Boolean = false,
+    onWhiteIconsToggle: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
@@ -216,7 +225,8 @@ fun VeloraApp(
 
     CompositionLocalProvider(
         LocalUsePixelUi provides usePixelUi,
-        LocalUseFrostedBlur provides (useFrostedBlur && !usePixelUi)
+        LocalUseFrostedBlur provides (useFrostedBlur && !usePixelUi),
+        LocalUseWhiteIcons provides useWhiteIcons
     ) {
         Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -349,6 +359,8 @@ fun VeloraApp(
                             onFrostedBlurToggle = onFrostedBlurToggle,
                             centerLyrics = centerLyrics,
                             onCenterLyricsToggle = onCenterLyricsToggle,
+                            useWhiteIcons = useWhiteIcons,
+                            onWhiteIconsToggle = onWhiteIconsToggle,
                             onBack = { showSettings = false }
                         )
                     }
@@ -401,6 +413,8 @@ fun VeloraApp(
                             onFrostedBlurToggle = onFrostedBlurToggle,
                             centerLyrics = centerLyrics,
                             onCenterLyricsToggle = onCenterLyricsToggle,
+                            useWhiteIcons = useWhiteIcons,
+                            onWhiteIconsToggle = onWhiteIconsToggle,
                             onBack = { showSettings = false }
                         )
                     }
