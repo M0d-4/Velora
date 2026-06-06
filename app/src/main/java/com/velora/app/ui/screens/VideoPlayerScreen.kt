@@ -55,7 +55,7 @@ fun VideoPlayerScreen(
 ) {
     val item = state.currentItem ?: return
     val hasLyrics = state.lyrics.isNotEmpty()
-    val canSkip = state.isQueueMode && state.queue.size > 1
+    val canSkip = state.isQueueMode && state.currentPlaylistId != null && state.queue.size > 1
 
     var controlsVisible by remember { mutableStateOf(true) }
     var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }

@@ -297,14 +297,28 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 newQueueMode = false
             }
         } else {
-            // Fresh play with no prior queue — never auto-assign a playlist context.
-            // Only playPlaylist() / continueInPlaylist() should set currentPlaylistId.
+            // Fresh play with no prior queue.
+            // If the item belongs to exactly one playlist, auto-assign it so
+            // Prev/Next work immediately without requiring the queue toggle.
             val allMedia = currentState.mediaList + currentState.extraMediaList
-            val idx = allMedia.indexOfFirst { it.id == resolvedItem.id }
-            newPlaylistId = null
-            newQueue = allMedia
-            newQueueIndex = if (idx >= 0) idx else 0
-            newQueueMode = false
+            val containingPlaylists = currentState.playlists.filter {
+                !it.isFavourites && it.itemIds.contains(resolvedItem.id)
+            }
+            if (containingPlaylists.size == 1) {
+                val pl = containingPlaylists.first()
+                val plItems = pl.itemIds.mapNotNull { id -> allMedia.firstOrNull { it.id == id } }
+                val idx = plItems.indexOfFirst { it.id == resolvedItem.id }
+                newPlaylistId = pl.id
+                newQueue = plItems
+                newQueueIndex = if (idx >= 0) idx else 0
+                newQueueMode = true
+            } else {
+                val idx = allMedia.indexOfFirst { it.id == resolvedItem.id }
+                newPlaylistId = null
+                newQueue = allMedia
+                newQueueIndex = if (idx >= 0) idx else 0
+                newQueueMode = false
+            }
         }
 
         _state.update { it.copy(
@@ -413,17 +427,16 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun playNext() {
         val s = _state.value
-        if (!s.isQueueMode) {
-            // Auto-enter queue mode then advance
-            toggleQueueMode()
-        }
+        // Only allow skipping within an actual playlist context
+        if (s.currentPlaylistId == null) return
+        if (!s.isQueueMode) toggleQueueMode()
         advanceQueue(true)
     }
     fun playPrev() {
         val s = _state.value
-        if (!s.isQueueMode) {
-            toggleQueueMode()
-        }
+        // Only allow skipping within an actual playlist context
+        if (s.currentPlaylistId == null) return
+        if (!s.isQueueMode) toggleQueueMode()
         advanceQueue(false)
     }
 

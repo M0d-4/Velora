@@ -241,7 +241,7 @@ private fun AudioPlayerPortrait(
     isFavourite: Boolean, onRotate: () -> Unit, onClose: () -> Unit = {}, onBack: () -> Unit = {}, modifier: Modifier = Modifier
 ) {
     val hasLyrics = state.lyrics.isNotEmpty()
-    val canSkip = state.isQueueMode && state.queue.size > 1
+    val canSkip = state.isQueueMode && state.currentPlaylistId != null && state.queue.size > 1
 
     var speedExpanded by remember { mutableStateOf(false) }
     var prevItemId by remember { mutableLongStateOf(item.id) }
@@ -402,7 +402,7 @@ private fun AudioPlayerLandscape(
     isFavourite: Boolean, onRotate: () -> Unit, onClose: () -> Unit = {}, onBack: () -> Unit = {}, modifier: Modifier = Modifier
 ) {
     val hasLyrics = state.lyrics.isNotEmpty()
-    val canSkip = state.isQueueMode && state.queue.size > 1
+    val canSkip = state.isQueueMode && state.currentPlaylistId != null && state.queue.size > 1
     var speedExpanded by remember { mutableStateOf(false) }
     val (dominantColor, secondaryColor) = rememberCoverArtColors(item)
 
@@ -421,24 +421,31 @@ private fun AudioPlayerLandscape(
                 Spacer(Modifier.height(4.dp))
                 Text(item.artist, style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(0.6f), textAlign = TextAlign.Center, maxLines = 1)
-            }
-            Column(modifier = Modifier.weight(0.56f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
-                            IconButton(onClick = onBack) {
-                                Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface.copy(0.8f))
-                            }
-                        }
-                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
-                            IconButton(onClick = onClose) {
-                                Icon(Icons.Rounded.Close, "Close", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface.copy(0.7f))
-                            }
+                Spacer(Modifier.height(12.dp))
+                // Back + Close buttons in the left column
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface.copy(0.8f))
                         }
                     }
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
-                        IconButton(onClick = onRotate) {
-                            Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface.copy(0.7f))
+                        IconButton(onClick = onClose) {
+                            Icon(Icons.Rounded.Close, "Close", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface.copy(0.7f))
+                        }
+                    }
+                }
+            }
+            Column(modifier = Modifier.weight(0.56f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+                // Top row: speed control on left, rotate on right
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    PlaybackSpeedControl(currentSpeed = state.playbackSpeed, onSpeedChange = onSpeedChange,
+                        expanded = speedExpanded, onExpandedChange = { speedExpanded = it })
+                    if (!speedExpanded) {
+                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                            IconButton(onClick = onRotate) {
+                                Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface.copy(0.7f))
+                            }
                         }
                     }
                 }
@@ -504,11 +511,6 @@ private fun AudioPlayerLandscape(
                     MediaScrubber(positionMs = state.positionMs, durationMs = state.durationMs, onSeek = onSeek,
                         skipSeconds = state.skipSeconds, onSkipBackward = onSkipBackward, onSkipForward = onSkipForward,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp))
-                }
-                Spacer(Modifier.height(6.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    PlaybackSpeedControl(currentSpeed = state.playbackSpeed, onSpeedChange = onSpeedChange,
-                        expanded = speedExpanded, onExpandedChange = { speedExpanded = it })
                 }
             }
         }

@@ -277,23 +277,6 @@ fun VeloraApp(
                             PermissionPrompt { permissionLauncher.launch(permissions) }
                         }
 
-                        // Mini player for audio — floats above the library filter bar (bottom)
-                        AnimatedVisibility(
-                            visible = state.currentItem != null && state.currentItem?.isVideo == false,
-                            enter = slideInVertically { it } + fadeIn(),
-                            exit  = slideOutVertically { it } + fadeOut(),
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .navigationBarsPadding()
-                                .padding(bottom = 132.dp, start = 12.dp, end = 12.dp)
-                        ) {
-                            MiniPlayer(
-                                state = state,
-                                onPlayPause = viewModel::togglePlayPause,
-                                onClose = viewModel::stopPlayback,
-                                onClick = { currentScreen = Screen.PLAYER }
-                            )
-                        }
                     }
 
                     Screen.PLAYER -> {
@@ -319,7 +302,11 @@ fun VeloraApp(
                                 isFavourite = state.currentItem?.let { viewModel.isFavourite(it) } ?: false,
                                 onRotate = onRotate,
                                 onHideBottomBar = {},
-                                onBack = { currentScreen = Screen.LIBRARY }
+                                onBack = {
+                                    // Pause video when navigating back to library
+                                    if (state.isPlaying) viewModel.togglePlayPause()
+                                    currentScreen = Screen.LIBRARY
+                                }
                             )
                             else -> AudioPlayerScreen(
                                 state = state,
@@ -357,6 +344,26 @@ fun VeloraApp(
                     }
                 }
                 } // end AnimatedContent
+
+                // ── Mini player overlay — floats above library bottom bar ────
+                AnimatedVisibility(
+                    visible = currentScreen == Screen.LIBRARY &&
+                              state.currentItem != null &&
+                              state.currentItem?.isVideo == false,
+                    enter = slideInVertically { it } + fadeIn(),
+                    exit  = slideOutVertically { it } + fadeOut(),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(bottom = 132.dp, start = 12.dp, end = 12.dp)
+                ) {
+                    MiniPlayer(
+                        state = state,
+                        onPlayPause = viewModel::togglePlayPause,
+                        onClose = viewModel::stopPlayback,
+                        onClick = { currentScreen = Screen.PLAYER }
+                    )
+                }
 
                 // ── Settings overlay ──────────────────────────────────────────
                 AnimatedVisibility(
