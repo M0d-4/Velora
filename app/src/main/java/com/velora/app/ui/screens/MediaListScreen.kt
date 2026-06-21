@@ -667,7 +667,7 @@ private fun ExpressiveTabRow(
                 modifier = Modifier
                     .offset(x = indicatorOffsetX)
                     .width(segmentWidthDp)
-                    .fillMaxHeight()
+                    .matchParentSize()
                     .background(indicatorColor, indicatorShape)
             )
         }
