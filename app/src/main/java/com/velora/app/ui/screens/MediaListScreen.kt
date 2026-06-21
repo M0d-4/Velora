@@ -213,7 +213,7 @@ fun MediaListScreen(
                 .navigationBarsPadding()
                 .padding(bottom = 8.dp, top = 12.dp, start = 16.dp, end = 16.dp)
         ) {
-            Column(modifier = Modifier.wrapContentHeight()) {
+            Column {
                 // Top row: tab pills + Library label all inside one squircle container
                 LiquidGlassSurface(
                     cornerRadius = 20.dp,
@@ -654,22 +654,7 @@ private fun ExpressiveTabRow(
     Box(
         modifier = modifier.onGloballyPositioned { rowWidthPx = it.size.width }
     ) {
-        if (rowWidthPx > 0 && tabCount > 0) {
-            val segmentWidthDp = with(density) { (rowWidthPx / tabCount).toDp() }
-            val indicatorOffsetX by animateDpAsState(
-                targetValue = segmentWidthDp * selectedIndex,
-                animationSpec = VeloraMotion.expressiveSpatialDefault(),
-                label = "tabIndicatorX"
-            )
-            // Squircle indicator — only covers the selected tab
-            Box(
-                modifier = Modifier
-                    .offset(x = indicatorOffsetX)
-                    .width(segmentWidthDp)
-                    .fillMaxHeight()
-                    .background(indicatorColor, pixelAwareShape(20.dp))
-            )
-        }
+        // Row drawn first so Box can measure height from it
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -678,6 +663,22 @@ private fun ExpressiveTabRow(
             tabs.forEach { tab ->
                 FilterChip(tab, tab == selectedTab, Modifier.weight(1f)) { onTabSelected(tab) }
             }
+        }
+        // Squircle indicator — positioned after Row so matchParentSize() works
+        if (rowWidthPx > 0 && tabCount > 0) {
+            val segmentWidthDp = with(density) { (rowWidthPx / tabCount).toDp() }
+            val indicatorOffsetX by animateDpAsState(
+                targetValue = segmentWidthDp * selectedIndex,
+                animationSpec = VeloraMotion.expressiveSpatialDefault(),
+                label = "tabIndicatorX"
+            )
+            Box(
+                modifier = Modifier
+                    .offset(x = indicatorOffsetX)
+                    .width(segmentWidthDp)
+                    .matchParentSize()
+                    .background(indicatorColor, pixelAwareShape(20.dp))
+            )
         }
     }
 }
