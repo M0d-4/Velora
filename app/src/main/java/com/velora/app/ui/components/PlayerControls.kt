@@ -130,7 +130,7 @@ fun SkipAndHeartPill(
     )
     var dragAccum by remember { mutableFloatStateOf(0f) }
 
-    LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.18f) {
+    LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.18f) {
         Row(
             modifier = Modifier
                 .pointerInput(skipSeconds, options) {

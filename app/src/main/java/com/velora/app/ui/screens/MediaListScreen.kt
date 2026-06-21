@@ -172,7 +172,7 @@ fun MediaListScreen(
                                     LazyColumn(
                                         state = listState,
                                         modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(start = 16.dp, end = 32.dp, top = 8.dp, bottom = 220.dp),
+                                        contentPadding = PaddingValues(start = 16.dp, end = 24.dp, top = 8.dp, bottom = 220.dp),
                                         verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         items(items, key = { it.id }) { item ->
@@ -214,42 +214,43 @@ fun MediaListScreen(
                 .padding(bottom = 8.dp, top = 12.dp, start = 16.dp, end = 16.dp)
         ) {
             Column {
-                // Single row: filter chips (extending to Library text) + action buttons
+                // Top row: tab pills + Library label all inside one squircle container
+                LiquidGlassSurface(
+                    cornerRadius = 20.dp,
+                    alpha = 0.18f,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ExpressiveTabRow(
+                            tabs = tabs,
+                            selectedTab = state.filterTab,
+                            onTabSelected = { tab ->
+                                onFilterChange(tab)
+                                scope.launch { pagerState.scrollToPage(tabs.indexOf(tab)) }
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            "Library",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                // Bottom row: action buttons on right
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    // Left: tab row in a squircle pill container that extends until Library text
-                    LiquidGlassSurface(
-                        cornerRadius = 20.dp,
-                        alpha = 0.18f,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            ExpressiveTabRow(
-                                tabs = tabs,
-                                selectedTab = state.filterTab,
-                                onTabSelected = { tab ->
-                                    onFilterChange(tab)
-                                    scope.launch { pagerState.scrollToPage(tabs.indexOf(tab)) }
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(start = 6.dp, top = 6.dp, bottom = 6.dp, end = 4.dp)
-                            )
-                            // "Library" text right inside the pill, at the end
-                            Text(
-                                "Library",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.padding(end = 12.dp)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    // Right side: Merge (playlists tab only) + New Playlist + Import ZIP + Settings
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)

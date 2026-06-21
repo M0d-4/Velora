@@ -60,6 +60,10 @@ fun pixelAwareShape(cornerRadius: Dp): Shape {
 
 /**
  * Liquid Glass surface — frosted glass look with animated border glow.
+ *
+ * @param forceGlass When true, always renders in glass mode even when Pixel UI
+ *   is enabled. Use this for player overlays that sit on top of media content
+ *   where you always want translucency regardless of the UI style setting.
  */
 @Composable
 fun LiquidGlassSurface(
@@ -68,6 +72,7 @@ fun LiquidGlassSurface(
     alpha: Float = 0.18f,
     borderAlpha: Float = 0.35f,
     elevation: Dp = 0.dp,
+    forceGlass: Boolean = false,
     content: @Composable BoxScope.() -> Unit
 ) {
     val usePixelUi = LocalUsePixelUi.current
@@ -94,7 +99,7 @@ fun LiquidGlassSurface(
     }
 
     // ── Pixel UI mode ─────────────────────────────────────────────────────────
-    if (usePixelUi) {
+    if (usePixelUi && !forceGlass) {
         // Real Pixel UI look: flat Material 3 surface using tonal
         // surface-container roles (no gradient, no translucency) clipped to
         // a squircle ("smooth corner" / superellipse) shape — same shape
