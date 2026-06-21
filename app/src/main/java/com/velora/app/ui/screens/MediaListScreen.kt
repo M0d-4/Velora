@@ -91,7 +91,7 @@ fun MediaListScreen(
     var showMultiDeleteMediaDialog by remember { mutableStateOf(false) }
     var showMultiDeletePlaylistDialog by remember { mutableStateOf(false) }
 
-    val tabs = FilterTab.values()
+    val tabs = FilterTab.values().toList()
     val pagerState = rememberPagerState(
         initialPage = tabs.indexOf(state.filterTab).coerceAtLeast(0),
         pageCount = { tabs.size }
