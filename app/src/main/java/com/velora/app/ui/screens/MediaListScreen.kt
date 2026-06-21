@@ -213,7 +213,7 @@ fun MediaListScreen(
                 .navigationBarsPadding()
                 .padding(bottom = 8.dp, top = 12.dp, start = 16.dp, end = 16.dp)
         ) {
-            Column {
+            Column(modifier = Modifier.wrapContentHeight()) {
                 // Top row: tab pills + Library label all inside one squircle container
                 LiquidGlassSurface(
                     cornerRadius = 20.dp,
