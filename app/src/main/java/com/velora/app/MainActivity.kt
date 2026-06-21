@@ -78,17 +78,16 @@ class MainActivity : ComponentActivity() {
             var centerLyrics by remember { mutableStateOf(prefs.getBoolean("center_lyrics", true)) }
             var useWhiteIcons by remember { mutableStateOf(prefs.getBoolean("white_icons", false)) }
 
-            // Pixel UI mode re-themes the whole app per-track from the
-            // current cover art (HCT/DynamicScheme — same engine PixelPlayer
-            // and Android's own wallpaper-based Monet theming use). Falls
-            // back to system Material You / static palette when off.
+            // Album art color scheme — only used inside the player itself, not
+            // for the library/settings UI. This prevents the whole app from
+            // re-theming its colors whenever a new track is opened.
             val playerState by viewModel.state.collectAsState()
             val albumArtScheme = rememberAlbumArtColorScheme(
                 artUri = playerState.currentItem?.artUri,
-                enabled = usePixelUi
+                enabled = false  // Disabled: app UI stays stable when media is opened
             )
 
-            VeloraTheme(useMaterialYou = useMaterialYou, albumArtScheme = albumArtScheme) {
+            VeloraTheme(useMaterialYou = useMaterialYou, albumArtScheme = null) {
                 VeloraApp(
                     viewModel = viewModel,
                     useMaterialYou = useMaterialYou,
@@ -375,6 +374,8 @@ fun VeloraApp(
                             onCenterLyricsToggle = onCenterLyricsToggle,
                             useWhiteIcons = useWhiteIcons,
                             onWhiteIconsToggle = onWhiteIconsToggle,
+                            hiddenItems = (state.mediaList + state.extraMediaList).filter { it.id in state.hiddenItemIds },
+                            onUnhideItem = viewModel::toggleHideItem,
                             onBack = { showSettings = false }
                         )
                     }
@@ -429,6 +430,8 @@ fun VeloraApp(
                             onCenterLyricsToggle = onCenterLyricsToggle,
                             useWhiteIcons = useWhiteIcons,
                             onWhiteIconsToggle = onWhiteIconsToggle,
+                            hiddenItems = (state.mediaList + state.extraMediaList).filter { it.id in state.hiddenItemIds },
+                            onUnhideItem = viewModel::toggleHideItem,
                             onBack = { showSettings = false }
                         )
                     }

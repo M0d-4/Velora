@@ -214,44 +214,41 @@ fun MediaListScreen(
                 .padding(bottom = 8.dp, top = 12.dp, start = 16.dp, end = 16.dp)
         ) {
             Column {
-                // Top row: filter chips with a sliding expressive indicator
-                LiquidGlassSurface(
-                    cornerRadius = 999.dp,
-                    alpha = 0.18f,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    ExpressiveTabRow(
-                        tabs = tabs,
-                        selectedTab = state.filterTab,
-                        onTabSelected = { tab ->
-                            onFilterChange(tab)
-                            scope.launch { pagerState.scrollToPage(tabs.indexOf(tab)) }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 6.dp, vertical = 6.dp)
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-                // Bottom row: Library text on left, action buttons + settings on right
+                // Single row: filter chips (extending to Library text) + action buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Left side: Library title (+ merge if playlists tab)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    // Left: tab row in a squircle pill container that extends until Library text
+                    LiquidGlassSurface(
+                        cornerRadius = 20.dp,
+                        alpha = 0.18f,
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Text(
-                            "Library",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ExpressiveTabRow(
+                                tabs = tabs,
+                                selectedTab = state.filterTab,
+                                onTabSelected = { tab ->
+                                    onFilterChange(tab)
+                                    scope.launch { pagerState.scrollToPage(tabs.indexOf(tab)) }
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(start = 6.dp, top = 6.dp, bottom = 6.dp, end = 4.dp)
+                            )
+                            // "Library" text right inside the pill, at the end
+                            Text(
+                                "Library",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.padding(end = 12.dp)
+                            )
+                        }
                     }
+                    Spacer(Modifier.width(8.dp))
                     // Right side: Merge (playlists tab only) + New Playlist + Import ZIP + Settings
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -663,12 +660,13 @@ private fun ExpressiveTabRow(
                 animationSpec = VeloraMotion.expressiveSpatialDefault(),
                 label = "tabIndicatorX"
             )
+            // Squircle indicator — only covers the selected tab
             Box(
                 modifier = Modifier
                     .offset(x = indicatorOffsetX)
                     .width(segmentWidthDp)
                     .fillMaxHeight()
-                    .background(indicatorColor, indicatorShape)
+                    .background(indicatorColor, pixelAwareShape(20.dp))
             )
         }
         Row(

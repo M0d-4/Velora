@@ -120,7 +120,7 @@ fun ExpressiveScrollBar(
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .width(28.dp)
+            .width(36.dp)
             .onGloballyPositioned { trackHeightPx = it.size.height.toFloat() }
             .pointerInput(sections, itemCount) {
                 detectDragGestures(
@@ -153,17 +153,18 @@ fun ExpressiveScrollBar(
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                .padding(vertical = 6.dp)
+                .padding(vertical = 4.dp)
                 .alpha(railAlpha),
-            verticalArrangement = Arrangement.SpaceEvenly,
+            verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             sections.forEach { section ->
                 val isActive = isDragging && section.label == activeLabel
                 Text(
                     section.label,
-                    fontSize = if (isActive) 11.sp else 9.sp,
+                    fontSize = if (isActive) 10.sp else 8.sp,
                     fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                    lineHeight = 9.sp,
                     color = if (isActive) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                 )
