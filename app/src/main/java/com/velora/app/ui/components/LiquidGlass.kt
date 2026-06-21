@@ -207,3 +207,57 @@ fun Modifier.bouncePressEffect(pressed: Boolean): Modifier {
     )
     return this.graphicsLayer { scaleX = scale; scaleY = scale }
 }
+
+/**
+ * Translucent surface for player controls — simpler and less shiny than LiquidGlass.
+ * Uses a semi-transparent dark/light fill with a subtle border, no glow or shimmer.
+ * Replaces LiquidGlassSurface in audio/video player control buttons.
+ */
+@Composable
+fun TranslucentSurface(
+    modifier: Modifier = Modifier,
+    cornerRadius: Dp = 20.dp,
+    alpha: Float = 0.18f,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val shape = RoundedCornerShape(cornerRadius)
+    val panelColor = if (isDark)
+        Color.White.copy(alpha = (alpha * 0.9f).coerceIn(0.08f, 0.40f))
+    else
+        Color.Black.copy(alpha = (alpha * 0.55f).coerceIn(0.05f, 0.28f))
+    val borderColor = if (isDark)
+        Color.White.copy(alpha = 0.12f)
+    else
+        Color.White.copy(alpha = 0.35f)
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(panelColor)
+            .then(
+                Modifier.drawBehind {
+                    drawIntoCanvas { canvas ->
+                        val strokePaint = Paint().apply {
+                            asFrameworkPaint().apply {
+                                isAntiAlias = true
+                                color = android.graphics.Color.TRANSPARENT
+                                style = android.graphics.Paint.Style.STROKE
+                                strokeWidth = 1.dp.toPx()
+                                this.color = android.graphics.Color.argb(
+                                    (borderColor.alpha * 255).toInt(),
+                                    (borderColor.red * 255).toInt(),
+                                    (borderColor.green * 255).toInt(),
+                                    (borderColor.blue * 255).toInt()
+                                )
+                            }
+                        }
+                        canvas.drawRoundRect(
+                            0f, 0f, size.width, size.height,
+                            cornerRadius.toPx(), cornerRadius.toPx(), strokePaint
+                        )
+                    }
+                }
+            ),
+        content = content
+    )
+}

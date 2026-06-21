@@ -149,7 +149,7 @@ fun ExpressiveScrollBar(
             },
         contentAlignment = Alignment.Center
     ) {
-        // The letter rail itself — always fills height, letters spread evenly
+        // The letter rail itself — each letter gets equal share of track height
         Column(
             modifier = Modifier
                 .fillMaxHeight()
@@ -160,13 +160,19 @@ fun ExpressiveScrollBar(
         ) {
             sections.forEach { section ->
                 val isActive = isDragging && section.label == activeLabel
-                Text(
-                    text = section.label,
-                    fontSize = if (isActive) 9.sp else 7.sp,
-                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isActive) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = section.label,
+                        fontSize = if (isActive) 9.sp else 7.sp,
+                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isActive) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        maxLines = 1
+                    )
+                }
             }
         }
 

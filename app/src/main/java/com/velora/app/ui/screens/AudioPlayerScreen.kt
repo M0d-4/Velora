@@ -35,8 +35,7 @@ import android.graphics.drawable.BitmapDrawable
 import androidx.palette.graphics.Palette
 import com.velora.app.PlayerState
 import com.velora.app.model.MediaItem
-import com.velora.app.ui.components.*
-import com.velora.app.ui.theme.VeloraMotion
+import com.velora.app.ui.components.*import com.velora.app.ui.theme.VeloraMotion
 
 @Composable
 fun AudioPlayerScreen(
@@ -247,7 +246,7 @@ private fun AudioPlayerPortrait(
 ) {
     val hasLyrics = state.lyrics.isNotEmpty()
     val canSkip = state.isQueueMode && state.currentPlaylistId != null && state.queue.size > 1
-    val isPlaylistContext = state.currentPlaylistId != null
+    val isPlaylistContext = state.playlists.any { it.itemIds.contains(item.id) }
 
     val useWhiteIcons = com.velora.app.ui.components.LocalUseWhiteIcons.current
     val iconColor    = if (useWhiteIcons) Color.White else MaterialTheme.colorScheme.primary
@@ -274,13 +273,13 @@ private fun AudioPlayerPortrait(
                 verticalAlignment = Alignment.CenterVertically) {
                 // Back + Close buttons grouped on left
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.15f) {
+                    TranslucentSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onBack) {
                             Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(18.dp),
                                 tint = iconColorMid)
                         }
                     }
-                    LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.15f) {
+                    TranslucentSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onClose) {
                             Icon(Icons.Rounded.Close, "Close", Modifier.size(18.dp),
                                 tint = iconColorMid)
@@ -292,7 +291,7 @@ private fun AudioPlayerPortrait(
                     enter = fadeIn(animationSpec = VeloraMotion.effectsDefault()) + scaleIn(initialScale = 0.8f),
                     exit  = fadeOut(animationSpec = VeloraMotion.effectsFast()) + scaleOut(targetScale = 0.8f)
                 ) {
-                    LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.15f) {
+                    TranslucentSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onRotate) {
                             Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(20.dp),
                                 tint = iconColorMid)
@@ -335,12 +334,18 @@ private fun AudioPlayerPortrait(
                     Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(18.dp),
                         tint = if (state.isShuffle) iconColor else iconColorDim)
                 }
-                LiquidGlassSurface(forceGlass = true, cornerRadius = 20.dp, alpha = if (state.isQueueMode) 0.32f else if (!isPlaylistContext) 0.05f else 0.12f,
+                TranslucentSurface(cornerRadius = 20.dp, alpha = if (state.isQueueMode) 0.32f else if (!isPlaylistContext) 0.05f else 0.12f,
                     modifier = Modifier.height(42.dp).wrapContentWidth()) {
                     val queueInteraction = remember { MutableInteractionSource() }
                     Row(modifier = Modifier
-                        .then(if (isPlaylistContext) Modifier.clickable(interactionSource = queueInteraction, indication = null) { onQueueToggle() } else Modifier)
-                        .padding(horizontal = 14.dp).fillMaxHeight(),
+                        .fillMaxHeight()
+                        .padding(horizontal = 14.dp)
+                        .then(
+                            if (isPlaylistContext)
+                                Modifier.clickable(interactionSource = queueInteraction, indication = null) { onQueueToggle() }
+                            else
+                                Modifier
+                        ),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         Icon(Icons.Rounded.QueueMusic, null, Modifier.size(16.dp),
                             tint = if (!isPlaylistContext) MaterialTheme.colorScheme.onSurface.copy(0.25f)
@@ -353,7 +358,7 @@ private fun AudioPlayerPortrait(
             }
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f, modifier = Modifier.size(50.dp)) {
+                TranslucentSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f, modifier = Modifier.size(50.dp)) {
                     IconButton(onClick = { if (canSkip) onPlayPrev() }, modifier = Modifier.fillMaxSize(), enabled = canSkip) {
                         Icon(Icons.Rounded.SkipPrevious, "Previous", Modifier.size(28.dp),
                             tint = if (canSkip) iconColor else MaterialTheme.colorScheme.onSurface.copy(0.25f))
@@ -362,7 +367,7 @@ private fun AudioPlayerPortrait(
                 Spacer(Modifier.width(16.dp))
                 AnimatedPlayPauseButton(isPlaying = state.isPlaying, onClick = onPlayPause)
                 Spacer(Modifier.width(16.dp))
-                LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f, modifier = Modifier.size(50.dp)) {
+                TranslucentSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f, modifier = Modifier.size(50.dp)) {
                     IconButton(onClick = { if (canSkip) onPlayNext() }, modifier = Modifier.fillMaxSize(), enabled = canSkip) {
                         Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(28.dp),
                             tint = if (canSkip) iconColor else MaterialTheme.colorScheme.onSurface.copy(0.25f))
@@ -371,7 +376,7 @@ private fun AudioPlayerPortrait(
             }
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.13f) {
+                TranslucentSurface(cornerRadius = 999.dp, alpha = 0.13f) {
                     Row(modifier = Modifier.pointerInput(Unit) { detectTapGestures { onImportLyrics() } }.padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         Icon(Icons.Rounded.Lyrics, null, Modifier.size(15.dp), tint = iconColor.copy(0.72f))
@@ -392,7 +397,7 @@ private fun AudioPlayerPortrait(
                     onSkipSecondsChange = onSkipSecondsChange, onFavouriteToggle = onFavouriteToggle)
             }
             Spacer(Modifier.height(8.dp))
-            LiquidGlassSurface(forceGlass = true, cornerRadius = 20.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
+            TranslucentSurface(cornerRadius = 20.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
                 MediaScrubber(positionMs = state.positionMs, durationMs = state.durationMs, onSeek = onSeek,
                     skipSeconds = state.skipSeconds, onSkipBackward = onSkipBackward, onSkipForward = onSkipForward,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp))
@@ -420,7 +425,7 @@ private fun AudioPlayerLandscape(
 ) {
     val hasLyrics = state.lyrics.isNotEmpty()
     val canSkip = state.isQueueMode && state.currentPlaylistId != null && state.queue.size > 1
-    val isPlaylistContext = state.currentPlaylistId != null
+    val isPlaylistContext = state.playlists.any { it.itemIds.contains(item.id) }
     val useWhiteIcons = com.velora.app.ui.components.LocalUseWhiteIcons.current
     val iconColor    = if (useWhiteIcons) Color.White else MaterialTheme.colorScheme.primary
     val iconColorDim = if (useWhiteIcons) Color.White.copy(0.5f) else MaterialTheme.colorScheme.primary.copy(0.5f)
@@ -439,12 +444,12 @@ private fun AudioPlayerLandscape(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.15f) {
+            TranslucentSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(16.dp), tint = iconColorMid)
                 }
             }
-            LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.15f) {
+            TranslucentSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                 IconButton(onClick = onClose) {
                     Icon(Icons.Rounded.Close, "Close", Modifier.size(16.dp), tint = iconColorMid)
                 }
@@ -468,7 +473,7 @@ private fun AudioPlayerLandscape(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     PlaybackSpeedControl(currentSpeed = state.playbackSpeed, onSpeedChange = onSpeedChange,
                         expanded = speedExpanded, onExpandedChange = { speedExpanded = it })
-                    LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.15f) {
+                    TranslucentSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onRotate) {
                             Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(18.dp), tint = iconColorMid)
                         }
@@ -481,7 +486,7 @@ private fun AudioPlayerLandscape(
                 } else { Spacer(Modifier.weight(1f)) }
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                    LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f, modifier = Modifier.size(42.dp)) {
+                    TranslucentSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f, modifier = Modifier.size(42.dp)) {
                         IconButton({ if (canSkip) onPlayPrev() }, Modifier.fillMaxSize(), canSkip) {
                             Icon(Icons.Rounded.SkipPrevious, "Prev", Modifier.size(24.dp),
                                 tint = if (canSkip) iconColor else MaterialTheme.colorScheme.onSurface.copy(0.25f))
@@ -490,7 +495,7 @@ private fun AudioPlayerLandscape(
                     Spacer(Modifier.width(12.dp))
                     AnimatedPlayPauseButton(isPlaying = state.isPlaying, onClick = onPlayPause)
                     Spacer(Modifier.width(12.dp))
-                    LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f, modifier = Modifier.size(42.dp)) {
+                    TranslucentSurface(cornerRadius = 999.dp, alpha = if (canSkip) 0.15f else 0.06f, modifier = Modifier.size(42.dp)) {
                         IconButton({ if (canSkip) onPlayNext() }, Modifier.fillMaxSize(), canSkip) {
                             Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(24.dp),
                                 tint = if (canSkip) iconColor else MaterialTheme.colorScheme.onSurface.copy(0.25f))
@@ -503,12 +508,18 @@ private fun AudioPlayerLandscape(
                         Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(16.dp),
                             tint = if (state.isShuffle) iconColor else iconColorDim)
                     }
-                    LiquidGlassSurface(forceGlass = true, cornerRadius = 20.dp, alpha = if (state.isQueueMode) 0.32f else if (!isPlaylistContext) 0.05f else 0.12f,
+                    TranslucentSurface(cornerRadius = 20.dp, alpha = if (state.isQueueMode) 0.32f else if (!isPlaylistContext) 0.05f else 0.12f,
                         modifier = Modifier.height(36.dp).wrapContentWidth()) {
                         val queueInteraction = remember { MutableInteractionSource() }
                         Row(modifier = Modifier
-                            .then(if (isPlaylistContext) Modifier.clickable(interactionSource = queueInteraction, indication = null) { onQueueToggle() } else Modifier)
-                            .padding(horizontal = 10.dp).fillMaxHeight(),
+                            .fillMaxHeight()
+                            .padding(horizontal = 10.dp)
+                            .then(
+                                if (isPlaylistContext)
+                                    Modifier.clickable(interactionSource = queueInteraction, indication = null) { onQueueToggle() }
+                                else
+                                    Modifier
+                            ),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Icon(Icons.Rounded.QueueMusic, null, Modifier.size(14.dp),
                                 tint = if (!isPlaylistContext) MaterialTheme.colorScheme.onSurface.copy(0.25f)
@@ -519,7 +530,7 @@ private fun AudioPlayerLandscape(
                         }
                     }
                     Spacer(Modifier.weight(1f))
-                    LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.13f) {
+                    TranslucentSurface(cornerRadius = 999.dp, alpha = 0.13f) {
                         Row(modifier = Modifier.pointerInput(Unit) { detectTapGestures { onImportLyrics() } }.padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Icon(Icons.Rounded.Lyrics, null, Modifier.size(14.dp), tint = iconColor.copy(0.72f))
@@ -539,7 +550,7 @@ private fun AudioPlayerLandscape(
                         onSkipSecondsChange = onSkipSecondsChange, onFavouriteToggle = onFavouriteToggle)
                 }
                 Spacer(Modifier.height(8.dp))
-                LiquidGlassSurface(forceGlass = true, cornerRadius = 14.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
+                TranslucentSurface(cornerRadius = 14.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
                     MediaScrubber(positionMs = state.positionMs, durationMs = state.durationMs, onSeek = onSeek,
                         skipSeconds = state.skipSeconds, onSkipBackward = onSkipBackward, onSkipForward = onSkipForward,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp))

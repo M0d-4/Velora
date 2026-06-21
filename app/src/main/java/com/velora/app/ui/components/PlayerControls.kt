@@ -241,7 +241,7 @@ fun AnimatedPlayPauseButton(isPlaying: Boolean, onClick: () -> Unit) {
         targetValue = if (pressed) 0.88f else 1f,
         animationSpec = VeloraMotion.standardSpatialSlow(), label = "ppScale"
     )
-    LiquidGlassSurface(
+    TranslucentSurface(
         cornerRadius = 999.dp, alpha = 0.25f,
         modifier = Modifier.size(72.dp).graphicsLayer { scaleX = scale; scaleY = scale }
     ) {
@@ -283,7 +283,7 @@ fun AnimatedIconButton(
     val bgAlpha by animateFloatAsState(
         targetValue = if (active) 0.32f else 0.12f, animationSpec = VeloraMotion.effectsDefault(), label = "btnBg"
     )
-    LiquidGlassSurface(
+    TranslucentSurface(
         cornerRadius = cornerRadius, alpha = bgAlpha,
         modifier = Modifier.size(size).graphicsLayer { scaleX = scale; scaleY = scale }
     ) {
@@ -311,7 +311,7 @@ fun SkipButton(
         targetValue = if (pressed) (if (desc == "Rewind") -18f else 18f) else 0f,
         animationSpec = VeloraMotion.standardSpatialSlow(), label = "skipBtnRot"
     )
-    LiquidGlassSurface(
+    TranslucentSurface(
         cornerRadius = 20.dp,
         alpha = 0.15f,
         modifier = Modifier
@@ -354,7 +354,7 @@ fun HeartButton(isFavourite: Boolean, onToggle: () -> Unit) {
                 .graphicsLayer { scaleX = splashScale.value; scaleY = splashScale.value; alpha = splashAlpha.value }
                 .background(Color(0xFFFF3B6B).copy(alpha = 0.40f), CircleShape)
         )
-        LiquidGlassSurface(
+        TranslucentSurface(
             cornerRadius = 999.dp,
             alpha = if (isFavourite) 0.30f else 0.18f,
             modifier = Modifier.size(34.dp).graphicsLayer { scaleX = btnScale; scaleY = btnScale }

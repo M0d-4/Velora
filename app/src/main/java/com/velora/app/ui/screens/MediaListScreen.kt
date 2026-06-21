@@ -213,17 +213,20 @@ fun MediaListScreen(
                 .navigationBarsPadding()
                 .padding(bottom = 8.dp, top = 12.dp, start = 16.dp, end = 16.dp)
         ) {
-            Column {
-                // Top row: tab pills + Library label all inside one squircle container
-                LiquidGlassSurface(
-                    cornerRadius = 20.dp,
-                    alpha = 0.18f,
-                    modifier = Modifier.fillMaxWidth()
+            // Outer LiquidGlass container stretching from tab row down to settings icon
+            LiquidGlassSurface(
+                cornerRadius = 20.dp,
+                alpha = 0.18f,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 4.dp, end = 8.dp, top = 4.dp, bottom = 4.dp)
                 ) {
+                    // Top section: tabs (no background) + Library label bottom-left
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         ExpressiveTabRow(
@@ -235,62 +238,61 @@ fun MediaListScreen(
                             },
                             modifier = Modifier.weight(1f)
                         )
+                    }
+                    // Bottom section: Library label bottom-left, action buttons right
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Text(
                             "Library",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.padding(start = 8.dp)
+                            modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
                         )
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                // Bottom row: action buttons on right
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        if (state.filterTab == FilterTab.PLAYLISTS) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (state.filterTab == FilterTab.PLAYLISTS) {
+                                LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                                    IconButton(onClick = { showMergeDialog = true }) {
+                                        Icon(
+                                            Icons.Rounded.MergeType, "Merge",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
                             LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
-                                IconButton(onClick = { showMergeDialog = true }) {
+                                IconButton(onClick = { showNewPlaylistDialog = true }) {
                                     Icon(
-                                        Icons.Rounded.MergeType, "Merge",
+                                        Icons.Rounded.PlaylistAdd, "New Playlist",
                                         tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
                             }
-                        }
-                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
-                            IconButton(onClick = { showNewPlaylistDialog = true }) {
-                                Icon(
-                                    Icons.Rounded.PlaylistAdd, "New Playlist",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(22.dp)
-                                )
+                            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                                IconButton(onClick = onImportZip) {
+                                    Icon(
+                                        Icons.Rounded.FolderZip, "Import ZIP",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
                             }
-                        }
-                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
-                            IconButton(onClick = onImportZip) {
-                                Icon(
-                                    Icons.Rounded.FolderZip, "Import ZIP",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
-                        LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
-                            IconButton(onClick = onSettingsClick) {
-                                Icon(
-                                    Icons.Rounded.Settings, "Settings",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(22.dp)
-                                )
+                            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
+                                IconButton(onClick = onSettingsClick) {
+                                    Icon(
+                                        Icons.Rounded.Settings, "Settings",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -654,17 +656,7 @@ private fun ExpressiveTabRow(
     Box(
         modifier = modifier.onGloballyPositioned { rowWidthPx = it.size.width }
     ) {
-        // Row drawn first so Box can measure height from it
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start
-        ) {
-            tabs.forEach { tab ->
-                FilterChip(tab, tab == selectedTab, Modifier.weight(1f)) { onTabSelected(tab) }
-            }
-        }
-        // Squircle indicator — positioned after Row so matchParentSize() works
+        // Sliding indicator pill — BEHIND the tab icons so it doesn't obscure them
         if (rowWidthPx > 0 && tabCount > 0) {
             val segmentWidthDp = with(density) { (rowWidthPx / tabCount).toDp() }
             val indicatorOffsetX by animateDpAsState(
@@ -679,6 +671,16 @@ private fun ExpressiveTabRow(
                     .matchParentSize()
                     .background(indicatorColor, pixelAwareShape(20.dp))
             )
+        }
+        // Row drawn on top of indicator
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start
+        ) {
+            tabs.forEach { tab ->
+                FilterChip(tab, tab == selectedTab, Modifier.weight(1f)) { onTabSelected(tab) }
+            }
         }
     }
 }

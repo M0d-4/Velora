@@ -30,6 +30,8 @@ import com.velora.app.model.MediaItem
 import com.velora.app.ui.components.LiquidGlassSurface
 import com.velora.app.ui.components.pixelAwareShape
 import com.velora.app.ui.theme.VeloraMotion
+import androidx.compose.animation.*
+import kotlinx.coroutines.launch
 
 const val SETTINGS_APP_VERSION = "1.1.2"
 
@@ -60,13 +62,31 @@ fun SettingsScreen(
 
     var showHiddenMedia by remember { mutableStateOf(false) }
 
-    if (showHiddenMedia) {
+    AnimatedContent(
+        targetState = showHiddenMedia,
+        transitionSpec = {
+            if (targetState) {
+                // Opening: slide in from right + fade in
+                (slideInHorizontally(animationSpec = VeloraMotion.standardSpatialDefault()) { it } +
+                 fadeIn(animationSpec = VeloraMotion.effectsDefault())) togetherWith
+                (slideOutHorizontally(animationSpec = VeloraMotion.effectsDefault()) { -it / 3 } +
+                 fadeOut(animationSpec = VeloraMotion.effectsFast()))
+            } else {
+                // Closing: slide back out to right + fade out
+                (slideInHorizontally(animationSpec = VeloraMotion.standardSpatialDefault()) { -it / 3 } +
+                 fadeIn(animationSpec = VeloraMotion.effectsDefault())) togetherWith
+                (slideOutHorizontally(animationSpec = VeloraMotion.effectsDefault()) { it } +
+                 fadeOut(animationSpec = VeloraMotion.effectsFast()))
+            }
+        }, label = "hiddenMediaNav"
+    ) { showingHidden ->
+    if (showingHidden) {
         HiddenMediaScreen(
             hiddenItems = hiddenItems,
             onUnhideItem = onUnhideItem,
             onBack = { showHiddenMedia = false }
         )
-        return
+        return@AnimatedContent
     }
 
     Box(modifier = modifier
@@ -208,6 +228,7 @@ fun SettingsScreen(
             }
         }
     }
+    } // end AnimatedContent
 }
 
 // ── Hidden Media Screen ───────────────────────────────────────────────────────
@@ -330,6 +351,9 @@ private fun HiddenSectionHeader(title: String, icon: ImageVector) {
 
 @Composable
 private fun HiddenMediaRow(item: MediaItem, onUnhide: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val btnScale = remember { androidx.compose.animation.core.Animatable(1f) }
+
     LiquidGlassSurface(cornerRadius = 16.dp, alpha = 0.12f, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -367,8 +391,18 @@ private fun HiddenMediaRow(item: MediaItem, onUnhide: () -> Unit) {
                     )
                 }
             }
-            LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
-                IconButton(onClick = onUnhide) {
+            LiquidGlassSurface(
+                cornerRadius = 999.dp,
+                alpha = 0.15f,
+                modifier = Modifier.graphicsLayer { scaleX = btnScale.value; scaleY = btnScale.value }
+            ) {
+                IconButton(onClick = {
+                    scope.launch {
+                        btnScale.animateTo(1.3f, VeloraMotion.effectsFast())
+                        btnScale.animateTo(1f, VeloraMotion.standardSpatialFast())
+                    }
+                    onUnhide()
+                }) {
                     Icon(
                         Icons.Rounded.Visibility,
                         "Unhide",

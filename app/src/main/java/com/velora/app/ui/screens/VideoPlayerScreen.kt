@@ -252,7 +252,7 @@ private fun VideoControlsPortrait(
             .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
-            LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.22f) {
+            TranslucentSurface(cornerRadius = 999.dp, alpha = 0.22f) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.Rounded.ArrowBackIosNew, "Back", Modifier.size(18.dp), tint = iconColor)
                 }
@@ -263,7 +263,7 @@ private fun VideoControlsPortrait(
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f))
             Spacer(Modifier.width(12.dp))
-            LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.22f) {
+            TranslucentSurface(cornerRadius = 999.dp, alpha = 0.22f) {
                 IconButton(onClick = onRotate) {
                     Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(20.dp), tint = iconColor)
                 }
@@ -274,14 +274,14 @@ private fun VideoControlsPortrait(
         Row(modifier = Modifier.align(Alignment.Center),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp,
+            TranslucentSurface(cornerRadius = 999.dp,
                 alpha = if (canSkip) 0.22f else 0.08f, modifier = Modifier.size(52.dp)) {
                 IconButton(onPlayPrev, Modifier.fillMaxSize(), canSkip) {
                     Icon(Icons.Rounded.SkipPrevious, "Prev", Modifier.size(28.dp),
                         tint = if (canSkip) iconColor else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                 }
             }
-            LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.32f,
+            TranslucentSurface(cornerRadius = 999.dp, alpha = 0.32f,
                 modifier = Modifier
                     .size(84.dp)
                     .pointerInput(Unit) { detectTapGestures(onTap = { onPlayPause() }) }
@@ -293,7 +293,7 @@ private fun VideoControlsPortrait(
                     }
                 }
             }
-            LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp,
+            TranslucentSurface(cornerRadius = 999.dp,
                 alpha = if (canSkip) 0.22f else 0.08f, modifier = Modifier.size(52.dp)) {
                 IconButton(onPlayNext, Modifier.fillMaxSize(), canSkip) {
                     Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(28.dp),
@@ -351,21 +351,21 @@ private fun VideoControlsPortrait(
                         fontSize = 11.sp, color = iconColor.copy(0.72f))
                 }
                 if (hasLyrics) {
-                    LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.2f, modifier = Modifier.size(30.dp)) {
+                    TranslucentSurface(cornerRadius = 999.dp, alpha = 0.2f, modifier = Modifier.size(30.dp)) {
                         IconButton(onRemoveLyrics, Modifier.fillMaxSize()) {
                             Icon(Icons.Rounded.Close, "Remove", Modifier.size(14.dp), tint = Color(0xFFFF6B6B))
                         }
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp,
+                TranslucentSurface(cornerRadius = 999.dp,
                     alpha = if (state.isShuffle) 0.35f else 0.18f, modifier = Modifier.size(34.dp)) {
                     IconButton(onShuffleToggle, Modifier.fillMaxSize()) {
                         Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(15.dp),
                             tint = if (state.isShuffle) iconColor else iconColorDim)
                     }
                 }
-                LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp,
+                TranslucentSurface(cornerRadius = 999.dp,
                     alpha = if (state.isQueueMode) 0.35f else 0.18f, modifier = Modifier.size(34.dp)) {
                     IconButton(onQueueToggle, Modifier.fillMaxSize()) {
                         Icon(Icons.Rounded.QueueMusic, "Queue", Modifier.size(15.dp),
@@ -427,7 +427,7 @@ private fun VideoControlsLandscape(
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f))
             Spacer(Modifier.width(12.dp))
-            LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.22f) {
+            TranslucentSurface(cornerRadius = 999.dp, alpha = 0.22f) {
                 IconButton(onClick = onRotate) {
                     Icon(Icons.Rounded.ScreenRotation, "Rotate", Modifier.size(18.dp), tint = iconColor)
                 }
@@ -438,14 +438,14 @@ private fun VideoControlsLandscape(
         Row(modifier = Modifier.align(Alignment.Center),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp,
+            TranslucentSurface(cornerRadius = 999.dp,
                 alpha = if (canSkip) 0.22f else 0.08f, modifier = Modifier.size(44.dp)) {
                 IconButton(onPlayPrev, Modifier.fillMaxSize(), canSkip) {
                     Icon(Icons.Rounded.SkipPrevious, "Prev", Modifier.size(24.dp),
                         tint = if (canSkip) iconColor else MaterialTheme.colorScheme.onSurface.copy(0.25f))
                 }
             }
-            LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.32f,
+            TranslucentSurface(cornerRadius = 999.dp, alpha = 0.32f,
                 modifier = Modifier
                     .size(72.dp)
                     .pointerInput(Unit) { detectTapGestures(onTap = { onPlayPause() }) }
@@ -457,7 +457,7 @@ private fun VideoControlsLandscape(
                     }
                 }
             }
-            LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp,
+            TranslucentSurface(cornerRadius = 999.dp,
                 alpha = if (canSkip) 0.22f else 0.08f, modifier = Modifier.size(44.dp)) {
                 IconButton(onPlayNext, Modifier.fillMaxSize(), canSkip) {
                     Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(24.dp),
@@ -511,20 +511,20 @@ private fun VideoControlsLandscape(
                         fontSize = 10.sp, color = iconColor.copy(0.72f))
                 }
                 if (hasLyrics) {
-                    LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.2f, modifier = Modifier.size(28.dp)) {
+                    TranslucentSurface(cornerRadius = 999.dp, alpha = 0.2f, modifier = Modifier.size(28.dp)) {
                         IconButton(onRemoveLyrics, Modifier.fillMaxSize()) {
                             Icon(Icons.Rounded.Close, "Remove", Modifier.size(13.dp), tint = Color(0xFFFF6B6B))
                         }
                     }
                 }
-                LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp,
+                TranslucentSurface(cornerRadius = 999.dp,
                     alpha = if (state.isShuffle) 0.35f else 0.18f, modifier = Modifier.size(30.dp)) {
                     IconButton(onShuffleToggle, Modifier.fillMaxSize()) {
                         Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(14.dp),
                             tint = if (state.isShuffle) iconColor else iconColorDim)
                     }
                 }
-                LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp,
+                TranslucentSurface(cornerRadius = 999.dp,
                     alpha = if (state.isQueueMode) 0.35f else 0.18f, modifier = Modifier.size(30.dp)) {
                     IconButton(onQueueToggle, Modifier.fillMaxSize()) {
                         Icon(Icons.Rounded.QueueMusic, "Queue", Modifier.size(14.dp),
@@ -542,7 +542,7 @@ private fun SkipSecondsPillVideo(current: Int, onChange: (Int) -> Unit) {
     val useWhiteIcons = com.velora.app.ui.components.LocalUseWhiteIcons.current
     val iconColor    = if (useWhiteIcons) Color.White else MaterialTheme.colorScheme.primary
     val iconColorDim = if (useWhiteIcons) Color.White.copy(0.5f) else MaterialTheme.colorScheme.primary.copy(0.45f)
-    LiquidGlassSurface(forceGlass = true, cornerRadius = 999.dp, alpha = 0.22f, modifier = Modifier.wrapContentWidth()) {
+    TranslucentSurface(cornerRadius = 999.dp, alpha = 0.22f, modifier = Modifier.wrapContentWidth()) {
         Row(Modifier.padding(horizontal = 4.dp, vertical = 4.dp)) {
             listOf(5, 10).forEach { secs ->
                 val isSelected = current == secs
