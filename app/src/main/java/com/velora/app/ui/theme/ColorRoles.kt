@@ -21,6 +21,7 @@ import coil.request.ImageRequest
 import coil.request.SuccessResult
 import com.google.android.material.color.utilities.DynamicScheme
 import com.google.android.material.color.utilities.Hct
+import com.google.android.material.color.utilities.MaterialDynamicColors
 import com.google.android.material.color.utilities.QuantizerCelebi
 import com.google.android.material.color.utilities.SchemeTonalSpot
 
@@ -91,35 +92,38 @@ fun generateColorSchemeFromSeed(seed: Color): VeloraColorSchemePair {
     }
 }
 
+private val materialDynamicColors = MaterialDynamicColors()
+
 private fun DynamicScheme.toComposeColorScheme(dark: Boolean): ColorScheme {
-    val primary = Color(getPrimary())
-    val onPrimary = Color(getOnPrimary())
-    val primaryContainer = Color(getPrimaryContainer())
-    val onPrimaryContainer = Color(getOnPrimaryContainer())
-    val secondary = Color(getSecondary())
-    val onSecondary = Color(getOnSecondary())
-    val secondaryContainer = Color(getSecondaryContainer())
-    val onSecondaryContainer = Color(getOnSecondaryContainer())
-    val tertiary = Color(getTertiary())
-    val onTertiary = Color(getOnTertiary())
-    val tertiaryContainer = Color(getTertiaryContainer())
-    val onTertiaryContainer = Color(getOnTertiaryContainer())
-    val background = Color(getBackground())
-    val onBackground = Color(getOnBackground())
-    val surface = Color(getSurface())
-    val onSurface = Color(getOnSurface())
-    val surfaceVariant = Color(getSurfaceVariant())
-    val onSurfaceVariant = Color(getOnSurfaceVariant())
-    val outline = Color(getOutline())
-    val outlineVariant = Color(getOutlineVariant())
-    val error = Color(getError())
-    val onError = Color(getOnError())
-    val errorContainer = Color(getErrorContainer())
-    val onErrorContainer = Color(getOnErrorContainer())
-    val inverseSurface = Color(getInverseSurface())
-    val inverseOnSurface = Color(getInverseOnSurface())
-    val inversePrimary = Color(getInversePrimary())
-    val scrim = Color(getScrim())
+    val mdc = materialDynamicColors
+    val primary = Color(mdc.primary().getArgb(this))
+    val onPrimary = Color(mdc.onPrimary().getArgb(this))
+    val primaryContainer = Color(mdc.primaryContainer().getArgb(this))
+    val onPrimaryContainer = Color(mdc.onPrimaryContainer().getArgb(this))
+    val secondary = Color(mdc.secondary().getArgb(this))
+    val onSecondary = Color(mdc.onSecondary().getArgb(this))
+    val secondaryContainer = Color(mdc.secondaryContainer().getArgb(this))
+    val onSecondaryContainer = Color(mdc.onSecondaryContainer().getArgb(this))
+    val tertiary = Color(mdc.tertiary().getArgb(this))
+    val onTertiary = Color(mdc.onTertiary().getArgb(this))
+    val tertiaryContainer = Color(mdc.tertiaryContainer().getArgb(this))
+    val onTertiaryContainer = Color(mdc.onTertiaryContainer().getArgb(this))
+    val background = Color(mdc.background().getArgb(this))
+    val onBackground = Color(mdc.onBackground().getArgb(this))
+    val surface = Color(mdc.surface().getArgb(this))
+    val onSurface = Color(mdc.onSurface().getArgb(this))
+    val surfaceVariant = Color(mdc.surfaceVariant().getArgb(this))
+    val onSurfaceVariant = Color(mdc.onSurfaceVariant().getArgb(this))
+    val outline = Color(mdc.outline().getArgb(this))
+    val outlineVariant = Color(mdc.outlineVariant().getArgb(this))
+    val error = Color(mdc.error().getArgb(this))
+    val onError = Color(mdc.onError().getArgb(this))
+    val errorContainer = Color(mdc.errorContainer().getArgb(this))
+    val onErrorContainer = Color(mdc.onErrorContainer().getArgb(this))
+    val inverseSurface = Color(mdc.inverseSurface().getArgb(this))
+    val inverseOnSurface = Color(mdc.inverseOnSurface().getArgb(this))
+    val inversePrimary = Color(mdc.inversePrimary().getArgb(this))
+    val scrim = Color(mdc.scrim().getArgb(this))
 
     return if (dark) {
         darkColorScheme(

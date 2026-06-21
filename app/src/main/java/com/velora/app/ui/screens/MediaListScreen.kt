@@ -8,6 +8,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,6 +38,8 @@ import com.velora.app.ui.components.LiquidGlassSurface
 import com.velora.app.ui.components.LocalUseFrostedBlur
 import com.velora.app.ui.components.LocalUsePixelUi
 import com.velora.app.ui.components.pixelAwareShape
+import com.velora.app.ui.components.ExpressiveScrollBar
+import com.velora.app.ui.components.buildScrollBarSections
 import com.velora.app.ui.theme.VeloraMotion
 import com.velora.app.util.MediaRepository
 import androidx.compose.animation.core.Animatable
@@ -48,6 +51,9 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.launch
 
@@ -158,20 +164,36 @@ fun MediaListScreen(
                                     }
                                 }
                             } else {
-                                LazyColumn(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 220.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    items(items, key = { it.id }) { item ->
-                                        MediaRow(item = item,
-                                            isPlaying = state.currentItem?.id == item.id && state.isPlaying,
-                                            isFavourite = isFavourite(item),
-                                            isImported = state.extraMediaList.any { it.id == item.id },
-                                            onClick = { onItemClick(item) },
-                                            onFavourite = { onAddToFavourites(item) },
-                                            onLongPress = { addToPlaylistItem = item })
+                                val listState = rememberLazyListState()
+                                val sections = remember(items) {
+                                    buildScrollBarSections(items) { it.title }
+                                }
+                                Box(Modifier.fillMaxSize()) {
+                                    LazyColumn(
+                                        state = listState,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = PaddingValues(start = 16.dp, end = 32.dp, top = 8.dp, bottom = 220.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        items(items, key = { it.id }) { item ->
+                                            MediaRow(item = item,
+                                                isPlaying = state.currentItem?.id == item.id && state.isPlaying,
+                                                isFavourite = isFavourite(item),
+                                                isImported = state.extraMediaList.any { it.id == item.id },
+                                                onClick = { onItemClick(item) },
+                                                onFavourite = { onAddToFavourites(item) },
+                                                onLongPress = { addToPlaylistItem = item })
+                                        }
                                     }
+                                    ExpressiveScrollBar(
+                                        listState = listState,
+                                        sections = sections,
+                                        itemCount = items.size,
+                                        modifier = Modifier
+                                            .align(Alignment.CenterEnd)
+                                            .fillMaxHeight()
+                                            .padding(bottom = 110.dp)
+                                    )
                                 }
                             }
                         }
@@ -192,26 +214,23 @@ fun MediaListScreen(
                 .padding(bottom = 8.dp, top = 12.dp, start = 16.dp, end = 16.dp)
         ) {
             Column {
-                // Top row: filter chips in a floating pill bar
+                // Top row: filter chips with a sliding expressive indicator
                 LiquidGlassSurface(
                     cornerRadius = 999.dp,
                     alpha = 0.18f,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
+                    ExpressiveTabRow(
+                        tabs = tabs,
+                        selectedTab = state.filterTab,
+                        onTabSelected = { tab ->
+                            onFilterChange(tab)
+                            scope.launch { pagerState.scrollToPage(tabs.indexOf(tab)) }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 6.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start
-                    ) {
-                        tabs.forEach { tab ->
-                            FilterChip(tab, state.filterTab == tab, Modifier.weight(1f)) {
-                                onFilterChange(tab)
-                                scope.launch { pagerState.scrollToPage(tabs.indexOf(tab)) }
-                            }
-                        }
-                    }
+                            .padding(horizontal = 6.dp, vertical = 6.dp)
+                    )
                 }
                 Spacer(Modifier.height(8.dp))
                 // Bottom row: Library text on left, action buttons + settings on right
@@ -605,52 +624,89 @@ private fun PlaylistRow(playlist: Playlist, mediaList: List<MediaItem>, onPlay: 
     }
 }
 
+// ── Expressive tab row ───────────────────────────────────────────────────────
+// Material 3 Expressive's signature NavigationBar/segmented-control behavior:
+// a single colored pill slides and springs between tab positions instead of
+// each tab independently toggling its own background.
+@Composable
+private fun ExpressiveTabRow(
+    tabs: List<FilterTab>,
+    selectedTab: FilterTab,
+    onTabSelected: (FilterTab) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val usePixelUi = LocalUsePixelUi.current
+    val useFrostedBlur = LocalUseFrostedBlur.current
+    val density = LocalDensity.current
+
+    var rowWidthPx by remember { mutableStateOf(0) }
+    val tabCount = tabs.size
+    val selectedIndex = tabs.indexOf(selectedTab).coerceAtLeast(0)
+    val indicatorShape = pixelAwareShape(999.dp)
+
+    val indicatorColor = when {
+        usePixelUi -> MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+        useFrostedBlur -> {
+            val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+            if (isDark) Color.White.copy(alpha = 0.18f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+        }
+        else -> Color.White.copy(alpha = 0.18f)
+    }
+
+    Box(
+        modifier = modifier.onGloballyPositioned { rowWidthPx = it.size.width }
+    ) {
+        if (rowWidthPx > 0 && tabCount > 0) {
+            val segmentWidthDp = with(density) { (rowWidthPx / tabCount).toDp() }
+            val indicatorOffsetX by animateDpAsState(
+                targetValue = segmentWidthDp * selectedIndex,
+                animationSpec = VeloraMotion.expressiveSpatialDefault(),
+                label = "tabIndicatorX"
+            )
+            Box(
+                modifier = Modifier
+                    .offset(x = indicatorOffsetX)
+                    .width(segmentWidthDp)
+                    .fillMaxHeight()
+                    .background(indicatorColor, indicatorShape)
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start
+        ) {
+            tabs.forEach { tab ->
+                FilterChip(tab, tab == selectedTab, Modifier.weight(1f)) { onTabSelected(tab) }
+            }
+        }
+    }
+}
+
 // ── Filter chip ────────────────────────────────────────────────────────────────
 @Composable
 private fun FilterChip(tab: FilterTab, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val label = when (tab) { FilterTab.ALL -> "All"; FilterTab.AUDIO -> "Audio"; FilterTab.VIDEO -> "Video"; FilterTab.PLAYLISTS -> "Playlists" }
     val icon  = when (tab) { FilterTab.ALL -> Icons.Rounded.GridView; FilterTab.AUDIO -> Icons.Rounded.MusicNote; FilterTab.VIDEO -> Icons.Rounded.Videocam; FilterTab.PLAYLISTS -> Icons.Rounded.PlaylistPlay }
 
-    val usePixelUi     = LocalUsePixelUi.current
-    val useFrostedBlur = LocalUseFrostedBlur.current
-
-    val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(0.45f)
-
-    // Selected background adapts to the active UI mode
-    val selectedBg: androidx.compose.ui.graphics.Brush = when {
-        usePixelUi -> androidx.compose.ui.graphics.Brush.linearGradient(
-            listOf(
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
-                MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f)
-            )
-        )
-        useFrostedBlur -> {
-            val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-            val c = if (isDark) androidx.compose.ui.graphics.Color.White.copy(alpha = 0.18f)
-                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-            androidx.compose.ui.graphics.Brush.linearGradient(listOf(c, c))
-        }
-        else -> androidx.compose.ui.graphics.Brush.verticalGradient(
-            listOf(
-                androidx.compose.ui.graphics.Color.White.copy(alpha = 0.22f),
-                androidx.compose.ui.graphics.Color.White.copy(alpha = 0.12f)
-            )
-        )
-    }
+    val tint by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(0.45f),
+        animationSpec = VeloraMotion.effectsDefault(), label = "chipTint"
+    )
+    val iconScale by animateFloatAsState(
+        targetValue = if (selected) 1.1f else 1f,
+        animationSpec = VeloraMotion.expressiveSpatialDefault(), label = "chipIconScale"
+    )
 
     Box(
         modifier = modifier
             .clip(pixelAwareShape(999.dp))
-            .then(
-                if (selected) Modifier.background(selectedBg)
-                else Modifier
-            )
             .clickable(onClick = onClick)
             .padding(vertical = 7.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Icon(icon, null, modifier = Modifier.size(22.dp), tint = tint)
+            Icon(icon, null, modifier = Modifier.size(22.dp).graphicsLayer { scaleX = iconScale; scaleY = iconScale }, tint = tint)
             Text(label, fontSize = 10.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = tint)
         }
     }
