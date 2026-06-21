@@ -18,6 +18,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
+import com.velora.app.ui.theme.VeloraMotion
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -57,8 +58,8 @@ fun MediaScrubber(
     // Flash states
     var rewindFlash  by remember { mutableStateOf(false) }
     var forwardFlash by remember { mutableStateOf(false) }
-    val rewindScale  by animateFloatAsState(if (rewindFlash) 1.25f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "rScale")
-    val forwardScale by animateFloatAsState(if (forwardFlash) 1.25f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "fScale")
+    val rewindScale  by animateFloatAsState(if (rewindFlash) 1.25f else 1f, VeloraMotion.standardSpatialDefault(), label = "rScale")
+    val forwardScale by animateFloatAsState(if (forwardFlash) 1.25f else 1f, VeloraMotion.standardSpatialDefault(), label = "fScale")
 
     val scope = rememberCoroutineScope()
 
@@ -76,9 +77,9 @@ fun MediaScrubber(
     }
 
     val tapZoneFraction = 0.22f
-    val trackHeightDp by animateDpAsState(if (isDragging) 6.dp else 3.dp, label = "track")
-    val thumbWidthDp  by animateDpAsState(if (isDragging) 20.dp else 12.dp, label = "thumb")
-    val thumbHeightDp by animateDpAsState(if (isDragging) 20.dp else 12.dp, label = "thumbH")
+    val trackHeightDp by animateDpAsState(if (isDragging) 6.dp else 3.dp, VeloraMotion.standardSpatialDefault(), label = "track")
+    val thumbWidthDp  by animateDpAsState(if (isDragging) 20.dp else 12.dp, VeloraMotion.standardSpatialDefault(), label = "thumb")
+    val thumbHeightDp by animateDpAsState(if (isDragging) 20.dp else 12.dp, VeloraMotion.standardSpatialDefault(), label = "thumbH")
 
     val useWhiteIcons  = LocalUseWhiteIcons.current
     val iconColor      = if (useWhiteIcons) Color.White else MaterialTheme.colorScheme.primary

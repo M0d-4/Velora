@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.velora.app.ui.theme.VeloraMotion
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -125,7 +126,7 @@ fun SkipAndHeartPill(
     val scope = rememberCoroutineScope()
     val heartTint by animateColorAsState(
         targetValue = if (isFavourite) Color(0xFFFF3B6B) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-        animationSpec = tween(280), label = "heartColor"
+        animationSpec = VeloraMotion.effectsSlow(), label = "heartColor"
     )
     var dragAccum by remember { mutableFloatStateOf(0f) }
 
@@ -154,12 +155,13 @@ fun SkipAndHeartPill(
         ) {
             options.forEach { secs ->
                 val isSelected = skipSeconds == secs
-                val bgAlpha by animateFloatAsState(if (isSelected) 0.22f else 0f, tween(200), label = "skipbg_$secs")
-                val textScale by animateFloatAsState(if (isSelected) 1.08f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "skipScale_$secs")
+                val bgAlpha by animateFloatAsState(if (isSelected) 0.22f else 0f, VeloraMotion.effectsDefault(), label = "skipbg_$secs")
+                val textScale by animateFloatAsState(if (isSelected) 1.08f else 1f, VeloraMotion.standardSpatialDefault(), label = "skipScale_$secs")
+                val skipPillShape = pixelAwareShape(999.dp)
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(iconColor.copy(alpha = bgAlpha), RoundedCornerShape(999.dp))
+                        .clip(skipPillShape)
+                        .background(iconColor.copy(alpha = bgAlpha), skipPillShape)
                         .pointerInput(secs) { detectTapGestures { onSkipSecondsChange(secs) } }
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                         .graphicsLayer { scaleX = textScale; scaleY = textScale },
@@ -178,10 +180,11 @@ fun SkipAndHeartPill(
 
             val heartInteraction = remember { MutableInteractionSource() }
             val heartPressed by heartInteraction.collectIsPressedAsState()
+            val heartPillShape = pixelAwareShape(999.dp)
 
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
+                    .clip(heartPillShape)
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -196,18 +199,18 @@ fun SkipAndHeartPill(
                 )
                 Box(
                     modifier = Modifier
-                        .then(if (isFavourite) Modifier.background(Color(0xFFFF3B6B).copy(alpha = 0.14f), RoundedCornerShape(999.dp)) else Modifier)
+                        .then(if (isFavourite) Modifier.background(Color(0xFFFF3B6B).copy(alpha = 0.14f), heartPillShape) else Modifier)
                         .clickable(interactionSource = heartInteraction, indication = null) {
                             onFavouriteToggle()
                             scope.launch {
-                                heartScale.animateTo(1.45f, tween(110, easing = FastOutSlowInEasing))
-                                heartScale.animateTo(1f, spring(stiffness = Spring.StiffnessHigh))
+                                heartScale.animateTo(1.45f, VeloraMotion.effectsFast())
+                                heartScale.animateTo(1f, VeloraMotion.standardSpatialFast())
                             }
                             if (!isFavourite) {
                                 scope.launch {
                                     splashScale.snapTo(0f); splashAlpha.snapTo(0.9f)
-                                    splashScale.animateTo(1.8f, tween(350, easing = FastOutSlowInEasing))
-                                    splashAlpha.animateTo(0f, tween(300))
+                                    splashScale.animateTo(1.8f, VeloraMotion.effectsSlow())
+                                    splashAlpha.animateTo(0f, VeloraMotion.effectsSlow())
                                     splashScale.snapTo(0f)
                                 }
                             }
@@ -236,7 +239,7 @@ fun AnimatedPlayPauseButton(isPlaying: Boolean, onClick: () -> Unit) {
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.88f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow), label = "ppScale"
+        animationSpec = VeloraMotion.standardSpatialSlow(), label = "ppScale"
     )
     LiquidGlassSurface(
         cornerRadius = 999.dp, alpha = 0.25f,
@@ -246,10 +249,10 @@ fun AnimatedPlayPauseButton(isPlaying: Boolean, onClick: () -> Unit) {
             AnimatedContent(
                 targetState = isPlaying,
                 transitionSpec = {
-                    scaleIn(initialScale = 0.55f, animationSpec = spring(stiffness = Spring.StiffnessMedium)) +
-                    fadeIn(tween(150)) togetherWith
-                    scaleOut(targetScale = 0.55f, animationSpec = spring(stiffness = Spring.StiffnessMedium)) +
-                    fadeOut(tween(100))
+                    scaleIn(initialScale = 0.55f, animationSpec = VeloraMotion.standardSpatialDefault()) +
+                    fadeIn(VeloraMotion.effectsDefault()) togetherWith
+                    scaleOut(targetScale = 0.55f, animationSpec = VeloraMotion.standardSpatialDefault()) +
+                    fadeOut(VeloraMotion.effectsFast())
                 }, label = "playpause"
             ) { playing ->
                 Icon(
@@ -275,10 +278,10 @@ fun AnimatedIconButton(
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.88f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow), label = "btnScale"
+        animationSpec = VeloraMotion.standardSpatialSlow(), label = "btnScale"
     )
     val bgAlpha by animateFloatAsState(
-        targetValue = if (active) 0.32f else 0.12f, animationSpec = tween(220), label = "btnBg"
+        targetValue = if (active) 0.32f else 0.12f, animationSpec = VeloraMotion.effectsDefault(), label = "btnBg"
     )
     LiquidGlassSurface(
         cornerRadius = cornerRadius, alpha = bgAlpha,
@@ -302,11 +305,11 @@ fun SkipButton(
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.85f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow), label = "skipBtnScale"
+        animationSpec = VeloraMotion.standardSpatialSlow(), label = "skipBtnScale"
     )
     val rotation by animateFloatAsState(
         targetValue = if (pressed) (if (desc == "Rewind") -18f else 18f) else 0f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow), label = "skipBtnRot"
+        animationSpec = VeloraMotion.standardSpatialSlow(), label = "skipBtnRot"
     )
     LiquidGlassSurface(
         cornerRadius = 20.dp,
@@ -338,11 +341,11 @@ fun HeartButton(isFavourite: Boolean, onToggle: () -> Unit) {
     val pressed by interaction.collectIsPressedAsState()
     val btnScale by animateFloatAsState(
         targetValue = if (pressed) 0.85f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow), label = "heartBtnScale"
+        animationSpec = VeloraMotion.standardSpatialSlow(), label = "heartBtnScale"
     )
     val tint by animateColorAsState(
         targetValue = if (isFavourite) Color(0xFFFF3B6B) else Color.White.copy(alpha = 0.55f),
-        animationSpec = tween(280), label = "heartColor"
+        animationSpec = VeloraMotion.effectsSlow(), label = "heartColor"
     )
     Box(contentAlignment = Alignment.Center) {
         Box(
@@ -360,14 +363,14 @@ fun HeartButton(isFavourite: Boolean, onToggle: () -> Unit) {
                 onClick = {
                     onToggle()
                     scope.launch {
-                        scale.animateTo(1.45f, tween(110))
-                        scale.animateTo(1f, spring(stiffness = Spring.StiffnessHigh))
+                        scale.animateTo(1.45f, VeloraMotion.effectsFast())
+                        scale.animateTo(1f, VeloraMotion.standardSpatialFast())
                     }
                     if (!isFavourite) {
                         scope.launch {
                             splashScale.snapTo(0f); splashAlpha.snapTo(0.9f)
-                            splashScale.animateTo(1.8f, tween(350, easing = FastOutSlowInEasing))
-                            splashAlpha.animateTo(0f, tween(300))
+                            splashScale.animateTo(1.8f, VeloraMotion.effectsSlow())
+                            splashAlpha.animateTo(0f, VeloraMotion.effectsSlow())
                             splashScale.snapTo(0f)
                         }
                     }

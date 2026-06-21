@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.velora.app.ui.theme.VeloraMotion
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,9 +45,9 @@ fun PlaybackSpeedControl(
         targetState = expanded,
         transitionSpec = {
             if (targetState)
-                (fadeIn(tween(200)) + expandHorizontally(tween(220))) togetherWith fadeOut(tween(150))
+                (fadeIn(VeloraMotion.effectsDefault()) + expandHorizontally(VeloraMotion.effectsDefault())) togetherWith fadeOut(VeloraMotion.effectsFast())
             else
-                fadeIn(tween(200)) togetherWith (fadeOut(tween(150)) + shrinkHorizontally(tween(200)))
+                fadeIn(VeloraMotion.effectsDefault()) togetherWith (fadeOut(VeloraMotion.effectsFast()) + shrinkHorizontally(VeloraMotion.effectsDefault()))
         }, label = "speedPanel"
     ) { isExpanded ->
         if (!isExpanded) {
@@ -96,16 +97,17 @@ fun PlaybackSpeedControl(
                         val isSelected = currentSpeed == speed
                         val bgAlpha by animateFloatAsState(
                             if (isSelected) if (isVideoOverlay) 0.22f else 0.20f else 0f,
-                            tween(180), label = "speedbg"
+                            VeloraMotion.effectsDefault(), label = "speedbg"
                         )
                         val interaction = remember { MutableInteractionSource() }
                         val pressed by interaction.collectIsPressedAsState()
+                        val pillShape = pixelAwareShape(999.dp)
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(999.dp))
+                                .clip(pillShape)
                                 .background(
                                     iconColor.copy(alpha = bgAlpha),
-                                    RoundedCornerShape(999.dp)
+                                    pillShape
                                 )
                                 .clickable(interactionSource = interaction, indication = null) {
                                     onSpeedChange(speed)

@@ -16,7 +16,7 @@ val GlassWhiteLight = Color(0x55FFFFFF)
 val GlassBorder     = Color(0x40FFFFFF)
 val GlassShadow     = Color(0x22000000)
 
-private val DarkColorScheme = darkColorScheme(
+val DarkColorScheme = darkColorScheme(
     primary          = Color(0xFF9ECAFF),
     secondary        = Color(0xFFBBC7DB),
     tertiary         = Color(0xFFD8BEF8),
@@ -29,7 +29,7 @@ private val DarkColorScheme = darkColorScheme(
     onSurface        = Color(0xFFE2E8F4),
 )
 
-private val LightColorScheme = lightColorScheme(
+val LightColorScheme = lightColorScheme(
     primary          = Color(0xFF0061A4),
     secondary        = Color(0xFF546E8A),
     tertiary         = Color(0xFF6B548E),
@@ -46,9 +46,17 @@ private val LightColorScheme = lightColorScheme(
 fun VeloraTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     useMaterialYou: Boolean = true,
+    /**
+     * Per-track Material You scheme generated from the current album art
+     * (see ui/theme/ColorRoles.kt). When non-null this takes priority over
+     * both system dynamic color and the static palettes — this is what
+     * drives Pixel UI mode's per-song theming.
+     */
+    albumArtScheme: VeloraColorSchemePair? = null,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
+        albumArtScheme != null -> if (darkTheme) albumArtScheme.dark else albumArtScheme.light
         useMaterialYou && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
@@ -72,5 +80,5 @@ fun VeloraTheme(
         }
     }
 
-    MaterialTheme(colorScheme = colorScheme, typography = Typography(), content = content)
+    MaterialTheme(colorScheme = colorScheme, typography = VeloraTypography, content = content)
 }

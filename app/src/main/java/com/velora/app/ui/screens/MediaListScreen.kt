@@ -36,6 +36,8 @@ import com.velora.app.model.Playlist
 import com.velora.app.ui.components.LiquidGlassSurface
 import com.velora.app.ui.components.LocalUseFrostedBlur
 import com.velora.app.ui.components.LocalUsePixelUi
+import com.velora.app.ui.components.pixelAwareShape
+import com.velora.app.ui.theme.VeloraMotion
 import com.velora.app.util.MediaRepository
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -343,10 +345,10 @@ private fun AddToPlaylistDialog(
                         color = MaterialTheme.colorScheme.onSurface.copy(0.45f),
                         modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
                     playlists.forEach { playlist ->
-                        Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                        Row(modifier = Modifier.fillMaxWidth().clip(pixelAwareShape(12.dp))
                             .clickable { onAdd(playlist.id) }.padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Box(modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+                            Box(modifier = Modifier.size(36.dp).clip(pixelAwareShape(10.dp))
                                 .background(MaterialTheme.colorScheme.primaryContainer.copy(0.3f)),
                                 contentAlignment = Alignment.Center) {
                                 Icon(Icons.Rounded.PlaylistPlay, null, modifier = Modifier.size(18.dp),
@@ -365,10 +367,10 @@ private fun AddToPlaylistDialog(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp,
                     color = MaterialTheme.colorScheme.onSurface.copy(0.1f))
                 val isHidden = item.id in hiddenItemIds
-                Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                Row(modifier = Modifier.fillMaxWidth().clip(pixelAwareShape(12.dp))
                     .clickable { onHide() }.padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+                    Box(modifier = Modifier.size(36.dp).clip(pixelAwareShape(10.dp))
                         .background(MaterialTheme.colorScheme.onSurface.copy(0.10f)),
                         contentAlignment = Alignment.Center) {
                         Icon(if (isHidden) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff, null,
@@ -385,10 +387,10 @@ private fun AddToPlaylistDialog(
                 if (isImported) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp,
                         color = MaterialTheme.colorScheme.onSurface.copy(0.1f))
-                    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth().clip(pixelAwareShape(12.dp))
                         .clickable { onRemoveImported() }.padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+                        Box(modifier = Modifier.size(36.dp).clip(pixelAwareShape(10.dp))
                             .background(Color(0xFFFF3B3B).copy(0.15f)), contentAlignment = Alignment.Center) {
                             Icon(Icons.Rounded.DeleteOutline, null, modifier = Modifier.size(18.dp), tint = Color(0xFFFF3B3B))
                         }
@@ -426,7 +428,7 @@ private fun MergePlaylistsDialog(
                     playlists.forEach { playlist ->
                         val checked = selected.contains(playlist.id)
                         Row(modifier = Modifier.fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(pixelAwareShape(12.dp))
                             .background(if (checked) MaterialTheme.colorScheme.primaryContainer.copy(0.3f) else Color.Transparent)
                             .clickable { if (checked) selected.remove(playlist.id) else selected.add(playlist.id) }
                             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -467,7 +469,7 @@ private fun MergePlaylistsDialog(
                 // Keep originals toggle
                 Row(
                     modifier = Modifier.fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(pixelAwareShape(12.dp))
                         .background(if (keepOriginals) MaterialTheme.colorScheme.primaryContainer.copy(0.25f) else Color.Transparent)
                         .clickable { keepOriginals = !keepOriginals }
                         .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -560,7 +562,7 @@ private fun PlaylistRow(playlist: Playlist, mediaList: List<MediaItem>, onPlay: 
         modifier = Modifier.fillMaxWidth().clickable(onClick = onPlay)) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Box(modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer.copy(0.35f))) {
+            Box(modifier = Modifier.size(56.dp).clip(pixelAwareShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer.copy(0.35f))) {
                 // Always show playlist icon — never pull in song cover art for a playlist
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Icon(
@@ -638,7 +640,7 @@ private fun FilterChip(tab: FilterTab, selected: Boolean, modifier: Modifier = M
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(999.dp))
+            .clip(pixelAwareShape(999.dp))
             .then(
                 if (selected) Modifier.background(selectedBg)
                 else Modifier
@@ -664,14 +666,15 @@ private fun MediaRow(
     LiquidGlassSurface(cornerRadius = 16.dp, alpha = if (isPlaying) 0.25f else 0.1f,
         modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongPress)) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(modifier = Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer.copy(0.4f)),
+            val thumbShape = pixelAwareShape(12.dp)
+            Box(modifier = Modifier.size(52.dp).clip(thumbShape).background(MaterialTheme.colorScheme.primaryContainer.copy(0.4f)),
                 contentAlignment = Alignment.Center) {
                 val art = item.artUri
                 if (art != null) AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)))
+                    modifier = Modifier.fillMaxSize().clip(thumbShape))
                 else Icon(if (item.isVideo) Icons.Rounded.Videocam else Icons.Rounded.MusicNote, null,
                     tint = MaterialTheme.colorScheme.primary.copy(0.7f), modifier = Modifier.size(26.dp))
-                if (isPlaying) Box(Modifier.fillMaxSize().background(Color.Black.copy(0.4f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                if (isPlaying) Box(Modifier.fillMaxSize().background(Color.Black.copy(0.4f), thumbShape), contentAlignment = Alignment.Center) {
                     Icon(Icons.AutoMirrored.Rounded.VolumeUp, null, tint = Color.White, modifier = Modifier.size(20.dp))
                 }
             }
@@ -710,7 +713,7 @@ private fun LibraryHeartButton(isFavourite: Boolean, onToggle: () -> Unit) {
     val tint by animateColorAsState(
         targetValue = if (isFavourite) Color(0xFFFF3B6B)
                       else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
-        animationSpec = tween(260), label = "heartColor"
+        animationSpec = VeloraMotion.effectsSlow(), label = "heartColor"
     )
     Box(modifier = Modifier.size(36.dp), contentAlignment = Alignment.Center) {
         // Red splash ripple
@@ -726,14 +729,14 @@ private fun LibraryHeartButton(isFavourite: Boolean, onToggle: () -> Unit) {
             onClick = {
                 onToggle()
                 scope.launch {
-                    heartScale.animateTo(1.45f, tween(110, easing = FastOutSlowInEasing))
-                    heartScale.animateTo(1f, spring(stiffness = Spring.StiffnessHigh))
+                    heartScale.animateTo(1.45f, VeloraMotion.effectsFast())
+                    heartScale.animateTo(1f, VeloraMotion.standardSpatialFast())
                 }
                 if (!isFavourite) {
                     scope.launch {
                         splashScale.snapTo(0f); splashAlpha.snapTo(0.9f)
-                        splashScale.animateTo(1.8f, tween(350, easing = FastOutSlowInEasing))
-                        splashAlpha.animateTo(0f, tween(300))
+                        splashScale.animateTo(1.8f, VeloraMotion.effectsSlow())
+                        splashAlpha.animateTo(0f, VeloraMotion.effectsSlow())
                         splashScale.snapTo(0f)
                     }
                 }

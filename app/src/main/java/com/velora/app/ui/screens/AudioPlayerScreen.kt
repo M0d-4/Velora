@@ -36,6 +36,7 @@ import androidx.palette.graphics.Palette
 import com.velora.app.PlayerState
 import com.velora.app.model.MediaItem
 import com.velora.app.ui.components.*
+import com.velora.app.ui.theme.VeloraMotion
 
 @Composable
 fun AudioPlayerScreen(
@@ -63,8 +64,8 @@ fun AudioPlayerScreen(
     AnimatedContent(
         targetState = state.isLandscape,
         transitionSpec = {
-            fadeIn(animationSpec = tween(320)) + slideInHorizontally(animationSpec = tween(320)) { if (targetState) it else -it } togetherWith
-            fadeOut(animationSpec = tween(220)) + slideOutHorizontally(animationSpec = tween(220)) { if (targetState) -it else it }
+            fadeIn(animationSpec = VeloraMotion.effectsSlow()) + slideInHorizontally(animationSpec = VeloraMotion.effectsSlow()) { if (targetState) it else -it } togetherWith
+            fadeOut(animationSpec = VeloraMotion.effectsDefault()) + slideOutHorizontally(animationSpec = VeloraMotion.effectsDefault()) { if (targetState) -it else it }
         }, label = "orientation"
     ) { landscape ->
         if (landscape) {
@@ -132,7 +133,7 @@ internal fun AnimatedBackground(
         initialValue = 150f,
         targetValue = 750f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 9000, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = VeloraMotion.ambientSlower, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "o1x"
@@ -150,7 +151,7 @@ internal fun AnimatedBackground(
         initialValue = 800f,
         targetValue = 300f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 11000, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = VeloraMotion.ambientSlowest, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "o2x"
@@ -159,7 +160,7 @@ internal fun AnimatedBackground(
         initialValue = 700f,
         targetValue = 200f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 8200, easing = LinearEasing),
+            animation = tween(durationMillis = VeloraMotion.ambientSlow, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "o2y"
@@ -193,7 +194,7 @@ internal fun AnimatedAlbumArt(item: MediaItem, isPlaying: Boolean, sizeDp: Int =
         initialValue = 0f,
         targetValue = if (isPlaying) -8f else 0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2200, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = VeloraMotion.ambientFast, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "floatY"
@@ -221,7 +222,7 @@ internal fun AnimatedAlbumArt(item: MediaItem, isPlaying: Boolean, sizeDp: Int =
                 AsyncImage(
                     model = artUri, contentDescription = "Album art",
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(28.dp))
+                    modifier = Modifier.fillMaxSize().clip(pixelAwareShape(28.dp))
                 )
             } else {
                 Icon(Icons.Rounded.MusicNote, null,
@@ -287,8 +288,8 @@ private fun AudioPlayerPortrait(
                 }
                 AnimatedVisibility(
                     visible = !speedExpanded,
-                    enter = fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.8f),
-                    exit  = fadeOut(animationSpec = tween(150)) + scaleOut(targetScale = 0.8f)
+                    enter = fadeIn(animationSpec = VeloraMotion.effectsDefault()) + scaleIn(initialScale = 0.8f),
+                    exit  = fadeOut(animationSpec = VeloraMotion.effectsFast()) + scaleOut(targetScale = 0.8f)
                 ) {
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.15f) {
                         IconButton(onClick = onRotate) {
@@ -306,8 +307,8 @@ private fun AudioPlayerPortrait(
             AnimatedContent(
                 targetState = item,
                 transitionSpec = {
-                    (slideInHorizontally(animationSpec = tween(300)) { if (enterFromRight) it / 2 else -it / 2 } + fadeIn(animationSpec = tween(300))) togetherWith
-                    (slideOutHorizontally(animationSpec = tween(200)) { if (enterFromRight) -it / 2 else it / 2 } + fadeOut(animationSpec = tween(200)))
+                    (slideInHorizontally(animationSpec = VeloraMotion.effectsSlow()) { if (enterFromRight) it / 2 else -it / 2 } + fadeIn(animationSpec = VeloraMotion.effectsSlow())) togetherWith
+                    (slideOutHorizontally(animationSpec = VeloraMotion.effectsDefault()) { if (enterFromRight) -it / 2 else it / 2 } + fadeOut(animationSpec = VeloraMotion.effectsDefault()))
                 }, label = "title"
             ) { t ->
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -376,7 +377,7 @@ private fun AudioPlayerPortrait(
                         Text(if (hasLyrics) "Change" else "Import lyrics", fontSize = 11.sp, color = iconColor.copy(0.72f))
                         if (hasLyrics) {
                             Spacer(Modifier.width(2.dp))
-                            Box(modifier = Modifier.size(15.dp).clip(RoundedCornerShape(999.dp))
+                            Box(modifier = Modifier.size(15.dp).clip(pixelAwareShape(999.dp))
                                 .background(MaterialTheme.colorScheme.error.copy(0.12f))
                                 .pointerInput(Unit) { detectTapGestures { onRemoveLyrics() } },
                                 contentAlignment = Alignment.Center) {
@@ -524,7 +525,7 @@ private fun AudioPlayerLandscape(
                             Text(if (hasLyrics) "Change" else "Import Lyrics", fontSize = 11.sp, color = iconColor.copy(0.72f))
                             if (hasLyrics) {
                                 Spacer(Modifier.width(2.dp))
-                                Box(modifier = Modifier.size(14.dp).clip(RoundedCornerShape(999.dp))
+                                Box(modifier = Modifier.size(14.dp).clip(pixelAwareShape(999.dp))
                                     .background(MaterialTheme.colorScheme.error.copy(0.12f))
                                     .pointerInput(Unit) { detectTapGestures { onRemoveLyrics() } },
                                     contentAlignment = Alignment.Center) {

@@ -46,9 +46,12 @@ import com.velora.app.ui.components.LocalUseFrostedBlur
 import com.velora.app.ui.components.LocalUseWhiteIcons
 import com.velora.app.ui.components.liquidPressEffect
 import com.velora.app.ui.components.bouncePressEffect
+import com.velora.app.ui.components.pixelAwareShape
 import com.velora.app.ui.screens.*
 import com.velora.app.model.ZipPlaylistMode
 import com.velora.app.ui.theme.VeloraTheme
+import com.velora.app.ui.theme.VeloraMotion
+import com.velora.app.ui.theme.rememberAlbumArtColorScheme
 import kotlinx.coroutines.launch
 
 const val APP_VERSION = "1.1.1"
@@ -74,7 +77,18 @@ class MainActivity : ComponentActivity() {
             var useFrostedBlur by remember { mutableStateOf(prefs.getBoolean("frosted_blur", false)) }
             var centerLyrics by remember { mutableStateOf(prefs.getBoolean("center_lyrics", true)) }
             var useWhiteIcons by remember { mutableStateOf(prefs.getBoolean("white_icons", false)) }
-            VeloraTheme(useMaterialYou = useMaterialYou) {
+
+            // Pixel UI mode re-themes the whole app per-track from the
+            // current cover art (HCT/DynamicScheme — same engine PixelPlayer
+            // and Android's own wallpaper-based Monet theming use). Falls
+            // back to system Material You / static palette when off.
+            val playerState by viewModel.state.collectAsState()
+            val albumArtScheme = rememberAlbumArtColorScheme(
+                artUri = playerState.currentItem?.artUri,
+                enabled = usePixelUi
+            )
+
+            VeloraTheme(useMaterialYou = useMaterialYou, albumArtScheme = albumArtScheme) {
                 VeloraApp(
                     viewModel = viewModel,
                     useMaterialYou = useMaterialYou,
@@ -244,17 +258,17 @@ fun VeloraApp(
                         when {
                             // Library -> Player: slide up
                             initialState == Screen.LIBRARY && targetState == Screen.PLAYER ->
-                                slideInVertically(tween(380, easing = FastOutSlowInEasing)) { it } +
-                                    fadeIn(tween(280)) togetherWith
-                                slideOutVertically(tween(280)) { -it / 4 } + fadeOut(tween(200))
+                                slideInVertically(VeloraMotion.effectsSlow()) { it } +
+                                    fadeIn(VeloraMotion.effectsSlow()) togetherWith
+                                slideOutVertically(VeloraMotion.effectsSlow()) { -it / 4 } + fadeOut(VeloraMotion.effectsDefault())
                             // Player -> Library: slide down
                             initialState == Screen.PLAYER && targetState == Screen.LIBRARY ->
-                                slideInVertically(tween(320, easing = FastOutSlowInEasing)) { -it / 4 } +
-                                    fadeIn(tween(220)) togetherWith
-                                slideOutVertically(tween(380, easing = FastOutSlowInEasing)) { it } +
-                                    fadeOut(tween(280))
+                                slideInVertically(VeloraMotion.effectsSlow()) { -it / 4 } +
+                                    fadeIn(VeloraMotion.effectsDefault()) togetherWith
+                                slideOutVertically(VeloraMotion.effectsSlow()) { it } +
+                                    fadeOut(VeloraMotion.effectsSlow())
                             else ->
-                                fadeIn(tween(280)) togetherWith fadeOut(tween(220))
+                                fadeIn(VeloraMotion.effectsSlow()) togetherWith fadeOut(VeloraMotion.effectsDefault())
                         }
                     },
                     label = "screenTransition",
@@ -391,11 +405,11 @@ fun VeloraApp(
                 AnimatedVisibility(
                     visible = showSettings,
                     enter = slideInVertically(
-                        animationSpec = tween(340, easing = FastOutSlowInEasing)
-                    ) { it } + fadeIn(tween(200)),
+                        animationSpec = VeloraMotion.effectsSlow()
+                    ) { it } + fadeIn(VeloraMotion.effectsDefault()),
                     exit = slideOutVertically(
-                        animationSpec = tween(280, easing = FastOutSlowInEasing)
-                    ) { it } + fadeOut(tween(180)),
+                        animationSpec = VeloraMotion.effectsSlow()
+                    ) { it } + fadeOut(VeloraMotion.effectsFast()),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     // Single Box — no blocking clickable that could swallow close-button taps
@@ -423,8 +437,8 @@ fun VeloraApp(
                 // ── Favorites toast ───────────────────────────────────────────
                 AnimatedVisibility(
                     visible = state.showFavouriteToast,
-                    enter = slideInVertically(spring(stiffness = Spring.StiffnessMediumLow)) { it } + fadeIn(tween(200)),
-                    exit  = slideOutVertically(tween(200)) { it } + fadeOut(tween(150)),
+                    enter = slideInVertically(VeloraMotion.standardSpatialSlow()) { it } + fadeIn(VeloraMotion.effectsDefault()),
+                    exit  = slideOutVertically(VeloraMotion.effectsDefault()) { it } + fadeOut(VeloraMotion.effectsFast()),
                     modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp)
                 ) {
                     LiquidGlassSurface(cornerRadius = 999.dp, alpha = 0.32f) {
@@ -470,7 +484,7 @@ private fun MiniPlayer(state: PlayerState, onPlayPause: () -> Unit, onClose: () 
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(modifier = Modifier.size(44.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .clip(pixelAwareShape(10.dp))
                 .background(MaterialTheme.colorScheme.primaryContainer.copy(0.4f)),
                 contentAlignment = Alignment.Center) {
                 val art = item.artUri

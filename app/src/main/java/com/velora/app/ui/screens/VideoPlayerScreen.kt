@@ -28,6 +28,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.velora.app.PlayerState
 import com.velora.app.ui.components.*
+import com.velora.app.ui.theme.VeloraMotion
 import kotlinx.coroutines.delay
 
 @Composable
@@ -153,7 +154,7 @@ fun VideoPlayerScreen(
 
         AnimatedVisibility(
             visible = controlsVisible,
-            enter = fadeIn(tween(180)), exit = fadeOut(tween(180)),
+            enter = fadeIn(VeloraMotion.effectsDefault()), exit = fadeOut(VeloraMotion.effectsDefault()),
             modifier = Modifier.fillMaxSize()
         ) {
             if (state.isLandscape) {
@@ -545,9 +546,10 @@ private fun SkipSecondsPillVideo(current: Int, onChange: (Int) -> Unit) {
         Row(Modifier.padding(horizontal = 4.dp, vertical = 4.dp)) {
             listOf(5, 10).forEach { secs ->
                 val isSelected = current == secs
-                val bgAlpha by animateFloatAsState(if (isSelected) 0.2f else 0f, tween(200), label = "skipbg")
-                Box(modifier = Modifier.clip(RoundedCornerShape(999.dp))
-                    .background(Color.White.copy(bgAlpha), RoundedCornerShape(999.dp))
+                val bgAlpha by animateFloatAsState(if (isSelected) 0.2f else 0f, VeloraMotion.effectsDefault(), label = "skipbg")
+                val pillShape = pixelAwareShape(999.dp)
+                Box(modifier = Modifier.clip(pillShape)
+                    .background(Color.White.copy(bgAlpha), pillShape)
                     .pointerInput(Unit) { detectTapGestures { onChange(secs) } }
                     .padding(horizontal = 14.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center) {

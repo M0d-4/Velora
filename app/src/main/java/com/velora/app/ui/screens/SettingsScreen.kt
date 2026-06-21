@@ -23,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.velora.app.ui.components.LiquidGlassSurface
+import com.velora.app.ui.components.pixelAwareShape
+import com.velora.app.ui.theme.VeloraMotion
 
 const val SETTINGS_APP_VERSION = "1.1.2"
 
@@ -197,7 +199,7 @@ internal fun DraggableToggleRow(
     var rowPressed by remember { mutableStateOf(false) }
     val rowScale by animateFloatAsState(
         targetValue = if (rowPressed) 0.97f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = VeloraMotion.standardSpatialSlow(),
         label = "rowScale"
     )
 
@@ -223,7 +225,7 @@ internal fun DraggableToggleRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(iconBg),
+        Box(modifier = Modifier.size(40.dp).clip(pixelAwareShape(12.dp)).background(iconBg),
             contentAlignment = Alignment.Center) {
             Icon(icon, null, modifier = Modifier.size(20.dp),
                 tint = if (enabled) MaterialTheme.colorScheme.primary
@@ -272,7 +274,7 @@ private fun SettingsInfoRow(icon: ImageVector, title: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(iconBg),
+        Box(modifier = Modifier.size(40.dp).clip(pixelAwareShape(12.dp)).background(iconBg),
             contentAlignment = Alignment.Center) {
             Icon(icon, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
         }

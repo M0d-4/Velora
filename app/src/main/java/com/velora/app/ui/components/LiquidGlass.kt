@@ -15,6 +15,8 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.velora.app.ui.theme.VeloraMotion
+import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
 /** When true, all LiquidGlass surfaces render as flat Pixel-style Material surfaces. */
 val LocalUsePixelUi = compositionLocalOf { false }
@@ -27,6 +29,34 @@ val LocalUseFrostedBlur = compositionLocalOf { false }
  * Only affects audio and video player composables that read this local.
  */
 val LocalUseWhiteIcons = compositionLocalOf { false }
+
+/**
+ * Squircle math gets visually unstable for huge "pill sentinel" radii like
+ * 999.dp (a common idiom to force a fully rounded pill/circle with
+ * RoundedCornerShape, which clamps automatically) — cap requested radii here
+ * instead. 56dp comfortably reads as a full pill/circle on every element
+ * size currently used across the app (34dp–72dp).
+ */
+private val PixelUiMaxSquircleRadius = 56.dp
+
+/**
+ * Returns a squircle (smooth-corner) shape when Pixel UI mode is active,
+ * otherwise a plain RoundedCornerShape with the same radius. Drop this in
+ * anywhere a bare `RoundedCornerShape(x.dp)` was hardcoded so those surfaces
+ * stay visually consistent with LiquidGlassSurface's Pixel UI squircles.
+ */
+@Composable
+fun pixelAwareShape(cornerRadius: Dp): Shape {
+    val usePixelUi = LocalUsePixelUi.current
+    return if (usePixelUi) {
+        val safeCornerRadius = if (cornerRadius > PixelUiMaxSquircleRadius) PixelUiMaxSquircleRadius else cornerRadius
+        remember(safeCornerRadius) {
+            AbsoluteSmoothCornerShape(cornerRadius = safeCornerRadius, smoothnessAsPercent = 60)
+        }
+    } else {
+        remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
+    }
+}
 
 /**
  * Liquid Glass surface — frosted glass look with animated border glow.
@@ -65,29 +95,26 @@ fun LiquidGlassSurface(
 
     // ── Pixel UI mode ─────────────────────────────────────────────────────────
     if (usePixelUi) {
-        // Pixel UI: vibrant Material surface with dynamic color accent
-        val shape = RoundedCornerShape(cornerRadius)
-        val primary = MaterialTheme.colorScheme.primary
-        val secondary = MaterialTheme.colorScheme.secondary
-        val tertiary = MaterialTheme.colorScheme.tertiary
-        // Cycle tint between primary / secondary / tertiary based on alpha tier
-        val accentColor = when {
-            alpha > 0.28f -> primary
-            alpha > 0.18f -> secondary
-            else -> tertiary
+        // Real Pixel UI look: flat Material 3 surface using tonal
+        // surface-container roles (no gradient, no translucency) clipped to
+        // a squircle ("smooth corner" / superellipse) shape — same shape
+        // language Pixel/PixelPlayer use instead of plain rounded rects.
+        // `alpha` (originally a glass-opacity knob) is repurposed here as a
+        // prominence/elevation tier so existing call sites don't need to
+        // change: higher alpha == call site wanted a more "elevated" panel.
+        val shape = pixelAwareShape(cornerRadius)
+        val colorScheme = MaterialTheme.colorScheme
+        val surfaceTone = when {
+            alpha >= 0.30f -> colorScheme.surfaceContainerHighest
+            alpha >= 0.22f -> colorScheme.surfaceContainerHigh
+            alpha >= 0.14f -> colorScheme.surfaceContainer
+            else            -> colorScheme.surfaceContainerLow
         }
         Box(
             modifier = modifier
                 .clip(shape)
-                .background(
-                    androidx.compose.ui.graphics.Brush.linearGradient(
-                        listOf(
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = (alpha + 0.05f).coerceAtMost(1f)),
-                            accentColor
-                        )
-                    ),
-                    shape
-                ),
+                .background(surfaceTone, shape)
+                .border(width = 1.dp, color = colorScheme.outlineVariant.copy(alpha = 0.35f), shape = shape),
             content = content
         )
         return
@@ -101,7 +128,7 @@ fun LiquidGlassSurface(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2400, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = VeloraMotion.ambientMedium, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "borderPulse"
@@ -155,15 +182,12 @@ fun Modifier.liquidGlowShadow(cornerRadius: Dp, isDark: Boolean): Modifier = thi
 fun Modifier.liquidPressEffect(pressed: Boolean): Modifier {
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.93f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
+        animationSpec = VeloraMotion.expressiveSpatialDefault(),
         label = "pressScale"
     )
     val alpha by animateFloatAsState(
         targetValue = if (pressed) 0.78f else 1f,
-        animationSpec = tween(60), label = "pressAlpha"
+        animationSpec = VeloraMotion.effectsFast(), label = "pressAlpha"
     )
     return this.graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }
 }
@@ -173,10 +197,7 @@ fun Modifier.liquidPressEffect(pressed: Boolean): Modifier {
 fun Modifier.bouncePressEffect(pressed: Boolean): Modifier {
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.88f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
+        animationSpec = VeloraMotion.expressiveSpatialSlow(),
         label = "bounceScale"
     )
     return this.graphicsLayer { scaleX = scale; scaleY = scale }
